@@ -154,8 +154,8 @@ router.post('/login', loginValidation, async (req, res) => {
 router.post('/refresh', async (req, res) => {
     const { refreshToken, device_id: deviceId = 'default' } = req.body;
 
-    if (!refreshToken) {
-        return res.status(400).json({ error: 'Refresh token required' });
+    if (!refreshToken || typeof refreshToken !== 'string') {
+        return res.status(400).json({ error: 'Refresh token required (must be a string)' });
     }
 
     try {
