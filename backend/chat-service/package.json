@@ -1,0 +1,27 @@
+{
+    "name": "chat-service",
+    "version": "1.0.0",
+    "description": "o8m Labs — Chat Service: real-time messaging, delivery receipts",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "mongoose": "^8.1.1",
+        "socket.io": "^4.7.4",
+        "ioredis": "^5.3.2",
+        "@socket.io/redis-adapter": "^8.2.1",
+        "cors": "^2.8.5",
+        "dotenv": "^16.3.1",
+        "kafkajs": "^2.2.4",
+        "helmet": "^7.1.0",
+        "morgan": "^1.10.0",
+        "uuid": "^9.0.0",
+        "axios": "^1.6.7"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.2"
+    }
+}

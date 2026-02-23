@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+client/.dart_tool/
+client/.packages
+client/.pub-cache/
+client/.pub/
+
+# Environment
+.env
+*.env.local
+IMPLEMENTATION_PLAN.md
+
+# Build outputs
+client/build/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker volumes
+data/
