@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const { initDB } = require('./config/db');
+const walletRoutes = require('./routes/wallet');
 
 const app = express();
 const PORT = process.env.BILLING_SERVICE_PORT || 3006;
@@ -17,13 +19,16 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'billing-service' });
 });
 
-// Routes will be added in Step 5
-// app.use('/credits', require('./routes/credits'));
-// app.use('/transactions', require('./routes/transactions'));
-// app.use('/earnings', require('./routes/earnings'));
+// Wallet & billing routes
+app.use('/wallet', walletRoutes);
 
-app.listen(PORT, () => {
-    console.log(`Billing Service running on port ${PORT}`);
-});
+const start = async () => {
+    await initDB();
+    app.listen(PORT, () => {
+        console.log(`Billing Service running on port ${PORT}`);
+    });
+};
+
+start();
 
 module.exports = app;

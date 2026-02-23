@@ -15,4 +15,10 @@ class ApiConstants {
   // Discovery Service
   static const String discoveryBase = 'http://localhost:3003';
   static const String hosts = '$discoveryBase/hosts';
+
+  // Billing Service
+  static const String billingBase = 'http://localhost:3006';
+  static const String wallet = '$billingBase/wallet';
+  static const String walletPurchase = '$billingBase/wallet/purchase';
+  static const String walletTransactions = '$billingBase/wallet/transactions';
 }
