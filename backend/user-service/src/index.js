@@ -3,6 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const connectDB = require('./config/db');
+const { startConsumer } = require('./config/kafka');
+const profileRoutes = require('./routes/profile');
 
 const app = express();
 const PORT = process.env.USER_SERVICE_PORT || 3002;
@@ -17,11 +20,18 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'user-service' });
 });
 
-// Routes will be added in Step 3
-// app.use('/profile', require('./routes/profile'));
+// Profile routes
+app.use('/profile', profileRoutes);
 
-app.listen(PORT, () => {
-    console.log(`User Service running on port ${PORT}`);
-});
+// Start
+const start = async () => {
+    await connectDB();
+    startConsumer(); // Non-blocking
+    app.listen(PORT, () => {
+        console.log(`User Service running on port ${PORT}`);
+    });
+};
+
+start();
 
 module.exports = app;

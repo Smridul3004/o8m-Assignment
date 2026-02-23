@@ -1,12 +1,14 @@
 class ApiConstants {
-  // For web: localhost works directly
-  // For Android emulator: use 10.0.2.2 instead of localhost
-  // For iOS simulator: use localhost
-  static const String baseUrl = 'http://localhost:3001';
+  // Auth Service
+  static const String authBase = 'http://localhost:3001';
+  static const String register = '$authBase/register';
+  static const String login = '$authBase/login';
+  static const String refresh = '$authBase/refresh';
+  static const String me = '$authBase/me';
 
-  // Auth endpoints
-  static const String register = '$baseUrl/register';
-  static const String login = '$baseUrl/login';
-  static const String refresh = '$baseUrl/refresh';
-  static const String me = '$baseUrl/me';
+  // User Service
+  static const String userBase = 'http://localhost:3002';
+  static const String profileEnsure = '$userBase/profile/ensure';
+  static const String profile = '$userBase/profile';
+  static const String profileRate = '$userBase/profile/rate';
 }

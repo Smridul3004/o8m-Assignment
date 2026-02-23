@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:o8m_marketplace/core/providers/auth_provider.dart';
 import 'package:o8m_marketplace/core/theme/app_theme.dart';
+import 'package:o8m_marketplace/features/profile/presentation/pages/profile_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -128,43 +129,59 @@ class HomePage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Success status
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceLight,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: AppTheme.success,
-                          size: 20,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Authentication Working!',
-                          style: TextStyle(
-                            color: AppTheme.success,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'You are successfully authenticated. More features coming soon — Discovery, Chat, Video Calls, and Billing.',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 13,
+              // Edit Profile card
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceLight,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline,
+                        color: isHost
+                            ? AppTheme.hostColor
+                            : AppTheme.callerColor,
+                        size: 24,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Edit Profile',
+                              style: TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Set up your name, bio & expertise',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -180,7 +197,9 @@ class HomePage extends StatelessWidget {
                   label: const Text('Sign Out'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.error,
-                    side: BorderSide(color: AppTheme.error.withValues(alpha: 0.5)),
+                    side: BorderSide(
+                      color: AppTheme.error.withValues(alpha: 0.5),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
