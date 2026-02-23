@@ -11,4 +11,8 @@ class ApiConstants {
   static const String profileEnsure = '$userBase/profile/ensure';
   static const String profile = '$userBase/profile';
   static const String profileRate = '$userBase/profile/rate';
+
+  // Discovery Service
+  static const String discoveryBase = 'http://localhost:3003';
+  static const String hosts = '$discoveryBase/hosts';
 }

@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const connectDB = require('./config/db');
+const hostsRoutes = require('./routes/hosts');
 
 const app = express();
 const PORT = process.env.DISCOVERY_SERVICE_PORT || 3003;
@@ -17,11 +19,16 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'discovery-service' });
 });
 
-// Routes will be added in Step 4
-// app.use('/hosts', require('./routes/hosts'));
+// Host discovery routes
+app.use('/hosts', hostsRoutes);
 
-app.listen(PORT, () => {
-    console.log(`Discovery Service running on port ${PORT}`);
-});
+const start = async () => {
+    await connectDB();
+    app.listen(PORT, () => {
+        console.log(`Discovery Service running on port ${PORT}`);
+    });
+};
+
+start();
 
 module.exports = app;

@@ -3,9 +3,17 @@ import 'package:provider/provider.dart';
 import 'package:o8m_marketplace/core/providers/auth_provider.dart';
 import 'package:o8m_marketplace/core/theme/app_theme.dart';
 import 'package:o8m_marketplace/features/profile/presentation/pages/profile_page.dart';
+import 'package:o8m_marketplace/features/discovery/presentation/pages/discovery_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _currentTab = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -14,201 +22,232 @@ class HomePage extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: IndexedStack(
+          index: _currentTab,
+          children: [
+            // Tab 0 — Dashboard
+            _DashboardTab(auth: auth, isHost: isHost),
+            // Tab 1 — Discover (callers browse hosts)
+            const DiscoveryPage(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          border: Border(
+            top: BorderSide(
+              color: AppTheme.textSecondary.withValues(alpha: 0.1),
+            ),
+          ),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentTab,
+          onTap: (i) => setState(() => _currentTab = i),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedItemColor: isHost ? AppTheme.hostColor : AppTheme.callerColor,
+          unselectedItemColor: AppTheme.textSecondary,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.explore),
+              label: 'Discover',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------- Dashboard Tab (original Home content) ----------
+class _DashboardTab extends StatelessWidget {
+  final AuthProvider auth;
+  final bool isHost;
+
+  const _DashboardTab({required this.auth, required this.isHost});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome! 👋',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        auth.userEmail ?? '',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
+                  Text(
+                    'Welcome! 👋',
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
-                  IconButton(
-                    onPressed: () => auth.logout(),
-                    icon: const Icon(
-                      Icons.logout,
-                      color: AppTheme.textSecondary,
-                    ),
-                    tooltip: 'Logout',
+                  const SizedBox(height: 4),
+                  Text(
+                    auth.userEmail ?? '',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-
-              // Role badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isHost
-                        ? [
-                            AppTheme.hostColor.withValues(alpha: 0.2),
-                            AppTheme.hostColor.withValues(alpha: 0.1),
-                          ]
-                        : [
-                            AppTheme.callerColor.withValues(alpha: 0.2),
-                            AppTheme.callerColor.withValues(alpha: 0.1),
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isHost
-                        ? AppTheme.hostColor.withValues(alpha: 0.3)
-                        : AppTheme.callerColor.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isHost ? Icons.headset_mic : Icons.phone_in_talk,
-                      color: isHost ? AppTheme.hostColor : AppTheme.callerColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isHost ? 'Host Account' : 'Caller Account',
-                      style: TextStyle(
-                        color: isHost
-                            ? AppTheme.hostColor
-                            : AppTheme.callerColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // User ID card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceLight,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Your User ID',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      auth.userId ?? 'N/A',
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 14,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Edit Profile card
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ProfilePage()),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surfaceLight,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        color: isHost
-                            ? AppTheme.hostColor
-                            : AppTheme.callerColor,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Edit Profile',
-                              style: TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Set up your name, bio & expertise',
-                              style: TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.chevron_right,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const Spacer(),
-
-              // Logout
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: OutlinedButton.icon(
-                  onPressed: () => auth.logout(),
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Sign Out'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.error,
-                    side: BorderSide(
-                      color: AppTheme.error.withValues(alpha: 0.5),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
+              IconButton(
+                onPressed: () => auth.logout(),
+                icon: const Icon(Icons.logout, color: AppTheme.textSecondary),
+                tooltip: 'Logout',
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 24),
+
+          // Role badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isHost
+                    ? [
+                        AppTheme.hostColor.withValues(alpha: 0.2),
+                        AppTheme.hostColor.withValues(alpha: 0.1),
+                      ]
+                    : [
+                        AppTheme.callerColor.withValues(alpha: 0.2),
+                        AppTheme.callerColor.withValues(alpha: 0.1),
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isHost
+                    ? AppTheme.hostColor.withValues(alpha: 0.3)
+                    : AppTheme.callerColor.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isHost ? Icons.headset_mic : Icons.phone_in_talk,
+                  color: isHost ? AppTheme.hostColor : AppTheme.callerColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isHost ? 'Host Account' : 'Caller Account',
+                  style: TextStyle(
+                    color: isHost ? AppTheme.hostColor : AppTheme.callerColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          // User ID card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceLight,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Your User ID',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  auth.userId ?? 'N/A',
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 14,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Edit Profile card
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfilePage()),
+              );
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceLight,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.person_outline,
+                    color: isHost ? AppTheme.hostColor : AppTheme.callerColor,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Edit Profile',
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Set up your name, bio & expertise',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppTheme.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const Spacer(),
+
+          // Logout
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () => auth.logout(),
+              icon: const Icon(Icons.logout),
+              label: const Text('Sign Out'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.error,
+                side: BorderSide(color: AppTheme.error.withValues(alpha: 0.5)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
