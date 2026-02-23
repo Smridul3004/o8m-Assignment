@@ -1,11 +1,11 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const rateLimit = require('express-rate-limit');
-const { verifyToken } = require('./middleware/auth');
+const cors = require('cors'); // cors is used to enable cross-origin resource sharing
+const helmet = require('helmet'); // helmet is used to set various HTTP headers to protect against common web vulnerabilities
+const morgan = require('morgan'); // morgan is used to log HTTP requests
+const { createProxyMiddleware } = require('http-proxy-middleware'); // createProxyMiddleware is used to proxy requests to downstream services
+const rateLimit = require('express-rate-limit'); // rateLimit is used to limit the number of requests from a single IP address
+const { verifyToken } = require('./middleware/auth'); // verifyToken is used to verify JWT tokens
 
 const app = express();
 const PORT = process.env.API_GATEWAY_PORT || 3000;
@@ -14,15 +14,19 @@ const PORT = process.env.API_GATEWAY_PORT || 3000;
 app.use(helmet());
 app.use(cors());
 app.use(morgan('combined'));
-app.use(express.json());
+app.use(express.json()); // express.json() is used to parse JSON bodies from requests
 
 // --- Rate Limiting ---
+// rateLimit is used to limit the number of requests from a single IP address
+// windowMs is the time window in milliseconds
+// max is the maximum number of requests allowed in the time window
+// message is the message to be sent if the rate limit is exceeded
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
   message: { error: 'Too many requests, please try again later.' },
 });
-app.use(limiter);
+app.use(limiter); // apply rate limiting to all requests
 
 // --- Health Check ---
 app.get('/health', (req, res) => {
