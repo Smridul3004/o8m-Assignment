@@ -111,4 +111,86 @@ router.get('/transactions', async (req, res) => {
     }
 });
 
+// POST /wallet/deduct-message — called by Chat Service to bill per message
+router.post('/deduct-message', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { callerId, hostId } = req.body;
+        if (!callerId || !hostId) {
+            return res.status(400).json({ error: 'callerId and hostId required' });
+        }
+
+        const MESSAGE_COST = 1.00; // credits per message
+        const PLATFORM_CUT = 0.20; // 20% platform fee
+        const hostEarning = MESSAGE_COST * (1 - PLATFORM_CUT);
+
+        await client.query('BEGIN');
+
+        // Get caller wallet
+        let callerWallet = await client.query(
+            'SELECT * FROM wallets WHERE user_id = $1 FOR UPDATE', [callerId]
+        );
+        if (callerWallet.rows.length === 0) {
+            callerWallet = await client.query(
+                'INSERT INTO wallets (user_id) VALUES ($1) RETURNING *', [callerId]
+            );
+        }
+        const caller = callerWallet.rows[0];
+
+        if (parseFloat(caller.balance) < MESSAGE_COST) {
+            await client.query('ROLLBACK');
+            return res.status(402).json({ error: 'Insufficient balance' });
+        }
+
+        const callerNewBalance = parseFloat(caller.balance) - MESSAGE_COST;
+
+        // Deduct from caller
+        await client.query(
+            'UPDATE wallets SET balance = $1, total_spent = total_spent + $2, updated_at = NOW() WHERE id = $3',
+            [callerNewBalance, MESSAGE_COST, caller.id]
+        );
+        await client.query(
+            `INSERT INTO transactions (wallet_id, user_id, type, amount, description, balance_after)
+             VALUES ($1, $2, 'MESSAGE_SENT', $3, 'Message sent', $4)`,
+            [caller.id, callerId, -MESSAGE_COST, callerNewBalance]
+        );
+
+        // Credit host
+        let hostWallet = await client.query(
+            'SELECT * FROM wallets WHERE user_id = $1 FOR UPDATE', [hostId]
+        );
+        if (hostWallet.rows.length === 0) {
+            hostWallet = await client.query(
+                'INSERT INTO wallets (user_id) VALUES ($1) RETURNING *', [hostId]
+            );
+        }
+        const host = hostWallet.rows[0];
+        const hostNewBalance = parseFloat(host.balance) + hostEarning;
+
+        await client.query(
+            'UPDATE wallets SET balance = $1, total_earned = total_earned + $2, updated_at = NOW() WHERE id = $3',
+            [hostNewBalance, hostEarning, host.id]
+        );
+        await client.query(
+            `INSERT INTO transactions (wallet_id, user_id, type, amount, description, balance_after)
+             VALUES ($1, $2, 'MESSAGE_RECEIVED', $3, 'Message received', $4)`,
+            [host.id, hostId, hostEarning, hostNewBalance]
+        );
+
+        await client.query('COMMIT');
+
+        res.json({
+            success: true,
+            callerBalance: callerNewBalance,
+            cost: MESSAGE_COST,
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Deduct message error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+});
+
 module.exports = router;

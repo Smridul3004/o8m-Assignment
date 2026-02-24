@@ -21,4 +21,10 @@ class ApiConstants {
   static const String wallet = '$billingBase/wallet';
   static const String walletPurchase = '$billingBase/wallet/purchase';
   static const String walletTransactions = '$billingBase/wallet/transactions';
+
+  // Chat Service
+  static const String chatBase = 'http://localhost:3004';
+  static const String chatSocket = 'http://localhost:3004';
+  static const String conversations = '$chatBase/conversations';
+  static String conversationMessages(String id) => '$chatBase/conversations/$id/messages';
 }

@@ -5,6 +5,7 @@ import 'package:o8m_marketplace/core/theme/app_theme.dart';
 import 'package:o8m_marketplace/features/profile/presentation/pages/profile_page.dart';
 import 'package:o8m_marketplace/features/discovery/presentation/pages/discovery_page.dart';
 import 'package:o8m_marketplace/features/billing/presentation/pages/wallet_page.dart';
+import 'package:o8m_marketplace/features/chat/presentation/pages/conversations_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,7 +31,9 @@ class _HomePageState extends State<HomePage> {
             _DashboardTab(auth: auth, isHost: isHost),
             // Tab 1 — Discover (callers browse hosts)
             const DiscoveryPage(),
-            // Tab 2 — Wallet
+            // Tab 2 — Messages
+            const ConversationsPage(),
+            // Tab 3 — Wallet
             const WalletPage(),
           ],
         ),
@@ -56,6 +59,10 @@ class _HomePageState extends State<HomePage> {
             BottomNavigationBarItem(
               icon: Icon(Icons.explore),
               label: 'Discover',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline),
+              label: 'Messages',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.account_balance_wallet),

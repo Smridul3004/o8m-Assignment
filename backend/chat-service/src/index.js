@@ -1,17 +1,31 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const connectDB = require('./config/db');
+const { connectProducer } = require('./config/kafka');
+const messageRoutes = require('./routes/messages');
+const chatHandler = require('./socket/chatHandler');
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.CHAT_SERVICE_PORT || 3004;
 
+// Socket.io with CORS
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST'],
+    },
+    path: '/socket.io',
+});
+
+// Middleware
 app.use(helmet());
 app.use(cors());
-app.use(morgan('combined'));
+app.use(morgan('dev'));
 app.use(express.json());
 
 // Health check
@@ -19,10 +33,22 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'chat-service' });
 });
 
-// Socket.io and routes will be added in Step 6
+// REST routes for message history & conversation management
+app.use('/', messageRoutes);
 
-server.listen(PORT, () => {
-    console.log(`Chat Service running on port ${PORT}`);
-});
+// Socket.io handler
+chatHandler(io);
 
-module.exports = { app, server };
+// Start
+const PORT = process.env.PORT || 3004;
+
+const start = async () => {
+    await connectDB();
+    await connectProducer();
+
+    server.listen(PORT, () => {
+        console.log(`Chat Service running on port ${PORT}`);
+    });
+};
+
+start();

@@ -1,11 +1,12 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors'); // cors is used to enable cross-origin resource sharing
-const helmet = require('helmet'); // helmet is used to set various HTTP headers to protect against common web vulnerabilities
-const morgan = require('morgan'); // morgan is used to log HTTP requests
-const { createProxyMiddleware } = require('http-proxy-middleware'); // createProxyMiddleware is used to proxy requests to downstream services
-const rateLimit = require('express-rate-limit'); // rateLimit is used to limit the number of requests from a single IP address
-const { verifyToken } = require('./middleware/auth'); // verifyToken is used to verify JWT tokens
+const http = require('http');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const rateLimit = require('express-rate-limit');
+const { verifyToken } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.API_GATEWAY_PORT || 3000;
@@ -58,11 +59,13 @@ app.use('/api', (req, res, next) => {
 
 // Set up proxy for each service
 Object.entries(services).forEach(([path, target]) => {
+  const isChat = path === '/api/chat';
   app.use(
     path,
     createProxyMiddleware({
       target,
       changeOrigin: true,
+      ws: isChat, // Enable WebSocket proxying for chat
       pathRewrite: { [`^${path}`]: '' },
       onProxyReq: (proxyReq, req) => {
         // Forward user info from JWT to downstream services
@@ -93,6 +96,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+server.listen(PORT, () => {
   console.log(`API Gateway running on port ${PORT}`);
 });

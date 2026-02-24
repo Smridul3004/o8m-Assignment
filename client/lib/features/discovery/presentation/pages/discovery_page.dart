@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:o8m_marketplace/core/theme/app_theme.dart';
+import 'package:o8m_marketplace/core/storage/token_storage.dart';
 import 'package:o8m_marketplace/features/discovery/data/discovery_service.dart';
+import 'package:o8m_marketplace/features/chat/data/chat_service.dart';
+import 'package:o8m_marketplace/features/chat/presentation/pages/chat_page.dart';
 
 class DiscoveryPage extends StatefulWidget {
   const DiscoveryPage({super.key});
@@ -298,7 +301,7 @@ class _HostDetailSheet extends StatelessWidget {
     final expertiseList = (host['expertise'] as List<dynamic>?) ?? [];
     final available = host['isAvailable'] == true;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -463,6 +466,47 @@ class _HostDetailSheet extends StatelessWidget {
               label: Text('Call ${name.isNotEmpty ? name : 'Host'}'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.hostColor,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Message button
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                final user = await TokenStorage.getUser();
+                final hostUserId = host['userId'] as String? ?? '';
+                if (hostUserId.isEmpty) return;
+
+                final convo = await ChatService.createConversation(hostUserId);
+                if (convo != null && context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatPage(
+                        conversationId: convo['_id'],
+                        otherUserId: hostUserId,
+                        otherUserName: name.isNotEmpty ? name : 'Host',
+                        isCaller: user['id'] != hostUserId,
+                      ),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: Text('Message ${name.isNotEmpty ? name : "Host"}'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primary,
+                side: BorderSide(
+                  color: AppTheme.primary.withValues(alpha: 0.5),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),

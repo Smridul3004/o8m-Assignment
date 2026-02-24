@@ -1,0 +1,182 @@
+import 'package:flutter/material.dart';
+import 'package:o8m_marketplace/core/storage/token_storage.dart';
+import 'package:o8m_marketplace/features/chat/data/chat_service.dart';
+import 'package:o8m_marketplace/features/chat/data/socket_service.dart';
+import 'package:o8m_marketplace/features/chat/presentation/pages/chat_page.dart';
+
+class ConversationsPage extends StatefulWidget {
+  const ConversationsPage({super.key});
+
+  @override
+  State<ConversationsPage> createState() => _ConversationsPageState();
+}
+
+class _ConversationsPageState extends State<ConversationsPage> {
+  List<dynamic> _conversations = [];
+  bool _loading = true;
+  String? _currentUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final user = await TokenStorage.getUser();
+    _currentUserId = user['id'];
+
+    // Connect socket
+    if (_currentUserId != null) {
+      SocketService.instance.connect(_currentUserId!);
+
+      // Listen for new message notifications to refresh the list
+      SocketService.instance.onNewMessageNotification((_) {
+        _loadConversations();
+      });
+    }
+
+    await _loadConversations();
+  }
+
+  Future<void> _loadConversations() async {
+    final convos = await ChatService.getConversations();
+    if (mounted) {
+      setState(() {
+        _conversations = convos;
+        _loading = false;
+      });
+    }
+  }
+
+  String _getOtherUserName(Map<String, dynamic> convo) {
+    // Show the other participant's ID (in a full app, we'd resolve display names)
+    if (_currentUserId == convo['callerId']) {
+      return 'Host ${(convo['hostId'] as String).substring(0, 8)}...';
+    }
+    return 'Caller ${(convo['callerId'] as String).substring(0, 8)}...';
+  }
+
+  String _getOtherUserId(Map<String, dynamic> convo) {
+    return _currentUserId == convo['callerId']
+        ? convo['hostId']
+        : convo['callerId'];
+  }
+
+  String _formatTime(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final date = DateTime.parse(dateStr).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(date);
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+      if (diff.inDays < 1) return '${diff.inHours}h ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return '${date.month}/${date.day}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_conversations.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[600]),
+            const SizedBox(height: 16),
+            Text(
+              'No conversations yet',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[400],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Find a host in Discover to start chatting',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadConversations,
+      child: ListView.builder(
+        itemCount: _conversations.length,
+        itemBuilder: (context, index) {
+          final convo = _conversations[index] as Map<String, dynamic>;
+          final name = _getOtherUserName(convo);
+          final preview = convo['lastMessagePreview'] ?? '';
+          final time = _formatTime(convo['lastMessageAt'] as String?);
+
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E2E),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              leading: CircleAvatar(
+                radius: 24,
+                backgroundColor: const Color(0xFF6C63FF),
+                child: Text(
+                  name[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              title: Text(
+                name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Text(
+                preview.isNotEmpty ? preview : 'Start a conversation',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+              ),
+              trailing: Text(
+                time,
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChatPage(
+                      conversationId: convo['_id'],
+                      otherUserId: _getOtherUserId(convo),
+                      otherUserName: name,
+                      isCaller: _currentUserId == convo['callerId'],
+                    ),
+                  ),
+                ).then((_) => _loadConversations());
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
