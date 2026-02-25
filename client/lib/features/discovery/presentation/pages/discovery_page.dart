@@ -4,6 +4,8 @@ import 'package:o8m_marketplace/core/storage/token_storage.dart';
 import 'package:o8m_marketplace/features/discovery/data/discovery_service.dart';
 import 'package:o8m_marketplace/features/chat/data/chat_service.dart';
 import 'package:o8m_marketplace/features/chat/presentation/pages/chat_page.dart';
+import 'package:o8m_marketplace/features/call/data/call_socket_service.dart';
+import 'package:o8m_marketplace/features/call/presentation/pages/outgoing_call_page.dart';
 
 class DiscoveryPage extends StatefulWidget {
   const DiscoveryPage({super.key});
@@ -449,18 +451,49 @@ class _HostDetailSheet extends StatelessWidget {
             width: double.infinity,
             height: 52,
             child: ElevatedButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Calling feature coming in Step 7!'),
-                    backgroundColor: AppTheme.primary,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                final hostUserId = host['userId'] as String? ?? '';
+                if (hostUserId.isEmpty) return;
+
+                final hostRate =
+                    (host['ratePerMinute'] as num?)?.toDouble() ?? 1.0;
+                final socket = CallSocketService.instance;
+
+                // Listen for call_initiated to get sessionId
+                socket.onCallInitiated((data) {
+                  if (!context.mounted) return;
+                  socket.offCallInitiated();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => OutgoingCallPage(
+                        sessionId: data['sessionId'] ?? '',
+                        hostId: hostUserId,
+                        hostName: name.isNotEmpty ? name : 'Host',
+                        ratePerMinute: hostRate,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                });
+
+                // Listen for errors
+                socket.onCallError((data) {
+                  socket.offCallError();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        data['message'] ?? data['error'] ?? 'Call failed',
+                      ),
+                      backgroundColor: Colors.redAccent,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                });
+
+                // Initiate the call
+                socket.initiateCall(hostId: hostUserId, hostRate: hostRate);
               },
               icon: const Icon(Icons.call),
               label: Text('Call ${name.isNotEmpty ? name : 'Host'}'),

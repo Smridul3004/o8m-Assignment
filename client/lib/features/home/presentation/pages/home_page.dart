@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:o8m_marketplace/core/providers/auth_provider.dart';
 import 'package:o8m_marketplace/core/theme/app_theme.dart';
+import 'package:o8m_marketplace/core/storage/token_storage.dart';
 import 'package:o8m_marketplace/features/profile/presentation/pages/profile_page.dart';
 import 'package:o8m_marketplace/features/discovery/presentation/pages/discovery_page.dart';
 import 'package:o8m_marketplace/features/billing/presentation/pages/wallet_page.dart';
 import 'package:o8m_marketplace/features/chat/presentation/pages/conversations_page.dart';
+import 'package:o8m_marketplace/features/call/data/call_socket_service.dart';
+import 'package:o8m_marketplace/features/call/data/call_service.dart';
+import 'package:o8m_marketplace/features/call/presentation/pages/incoming_call_page.dart';
+import 'package:o8m_marketplace/features/call/presentation/pages/in_call_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,6 +21,72 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentTab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initCallSocket();
+  }
+
+  Future<void> _initCallSocket() async {
+    final user = await TokenStorage.getUser();
+    final userId = user['id'];
+    if (userId == null || userId.isEmpty) return;
+
+    // Connect call socket
+    CallSocketService.instance.connect(userId);
+
+    // Global incoming call listener
+    CallSocketService.instance.onIncomingCall((data) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => IncomingCallPage(
+            sessionId: data['sessionId'] ?? '',
+            callerId: data['callerId'] ?? '',
+            callerName: data['callerName'] ?? 'Unknown',
+            callType: data['callType'] ?? 'AUDIO',
+            ratePerMinute: (data['ratePerMinute'] as num?)?.toDouble() ?? 1.0,
+          ),
+        ),
+      );
+    });
+
+    // Crash recovery — check for active session
+    final active = await CallService.checkActiveSession();
+    if (active['hasActiveSession'] == true && active['session'] != null) {
+      final session = active['session'] as Map<String, dynamic>;
+      if (mounted && session['state'] == 'ACTIVE') {
+        final isCaller = session['callerId'] == userId;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => InCallPage(
+              sessionId: session['sessionId'] ?? '',
+              otherUserId: isCaller
+                  ? session['hostId'] ?? ''
+                  : session['callerId'] ?? '',
+              otherUserName: 'Reconnected',
+              ratePerMinute:
+                  (session['ratePerMinute'] as num?)?.toDouble() ?? 1.0,
+              isCaller: isCaller,
+              answeredAt:
+                  session['answeredAt'] ?? DateTime.now().toIso8601String(),
+              agoraToken: '',
+              agoraAppId: '',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    CallSocketService.instance.offIncomingCall();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

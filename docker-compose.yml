@@ -146,6 +146,11 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+    environment:
+      AGORA_APP_ID: "8140f62fea4f4f2b9bebaecd2b07ebb4"
+      AGORA_APP_CERTIFICATE: "7e70d82434d146f58227dc5e3f473238"
+      # No AGORA_APP_CERTIFICATE needed for testing
+
 
   billing-service:
     build: ./backend/billing-service

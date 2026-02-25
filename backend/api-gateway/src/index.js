@@ -59,13 +59,13 @@ app.use('/api', (req, res, next) => {
 
 // Set up proxy for each service
 Object.entries(services).forEach(([path, target]) => {
-  const isChat = path === '/api/chat';
+  const isWsService = path === '/api/chat' || path === '/api/calls';
   app.use(
     path,
     createProxyMiddleware({
       target,
       changeOrigin: true,
-      ws: isChat, // Enable WebSocket proxying for chat
+      ws: isWsService, // Enable WebSocket proxying for chat and call services
       pathRewrite: { [`^${path}`]: '' },
       onProxyReq: (proxyReq, req) => {
         // Forward user info from JWT to downstream services
