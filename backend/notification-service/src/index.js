@@ -9,7 +9,7 @@ const tokenRoutes = require('./routes/tokens');
 const notificationRoutes = require('./routes/notifications');
 
 const app = express();
-const PORT = process.env.NOTIFICATION_SERVICE_PORT || 3007;
+const PORT = process.env.PORT || process.env.NOTIFICATION_SERVICE_PORT || 3007;
 const MONGO_URI = process.env.NOTIFICATION_MONGO_URI || process.env.MONGO_URI || 'mongodb://mongo:27017/o8m_notifications';
 
 app.use(helmet());

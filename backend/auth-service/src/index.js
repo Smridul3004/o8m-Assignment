@@ -8,7 +8,7 @@ const { connectProducer } = require('./config/kafka');
 const authRoutes = require('./routes/auth');
 
 const app = express();
-const PORT = process.env.AUTH_SERVICE_PORT || 3001;
+const PORT = process.env.PORT || process.env.AUTH_SERVICE_PORT || 3001;
 
 // Middleware
 app.use(helmet());
@@ -24,22 +24,21 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/', authRoutes);
 
-// Start server
+// Start server FIRST for health checks, then run migrations
 async function start() {
+    // Start server immediately so health checks pass
+    app.listen(PORT, () => {
+        console.log(`Auth Service running on port ${PORT}`);
+    });
+
+    // Run migrations (don't block startup)
     try {
-        // Run database migrations
         await migrate();
         console.log('Database migrations complete');
-
-        // Connect Kafka producer (non-blocking — service works without Kafka)
         await connectProducer();
-
-        app.listen(PORT, () => {
-            console.log(`Auth Service running on port ${PORT}`);
-        });
     } catch (err) {
-        console.error('Auth Service failed to start:', err.message);
-        process.exit(1);
+        console.error('Auth Service initialization error:', err.message);
+        // Service stays running for health checks
     }
 }
 

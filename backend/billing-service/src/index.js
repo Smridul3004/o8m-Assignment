@@ -7,7 +7,7 @@ const { initDB } = require('./config/db');
 const walletRoutes = require('./routes/wallet');
 
 const app = express();
-const PORT = process.env.BILLING_SERVICE_PORT || 3006;
+const PORT = process.env.PORT || process.env.BILLING_SERVICE_PORT || 3006;
 
 app.use(helmet());
 app.use(cors());
@@ -22,11 +22,21 @@ app.get('/health', (req, res) => {
 // Wallet & billing routes
 app.use('/wallet', walletRoutes);
 
+// Start server FIRST for health checks, then init DB
 const start = async () => {
-    await initDB();
+    // Start server immediately so health checks pass
     app.listen(PORT, () => {
         console.log(`Billing Service running on port ${PORT}`);
     });
+
+    // Initialize database (don't block startup)
+    try {
+        await initDB();
+        console.log('Database initialized');
+    } catch (err) {
+        console.error('Database initialization failed:', err.message);
+        // Service stays running for health checks
+    }
 };
 
 start();

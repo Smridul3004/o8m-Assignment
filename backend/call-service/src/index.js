@@ -15,7 +15,7 @@ const billingTimer = require('./services/billingTimer');
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.CALL_SERVICE_PORT || 3005;
+const PORT = process.env.PORT || process.env.CALL_SERVICE_PORT || 3005;
 
 app.use(helmet());
 app.use(cors());

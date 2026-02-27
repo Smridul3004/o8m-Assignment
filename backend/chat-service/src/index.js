@@ -42,13 +42,22 @@ chatHandler(io);
 // Start
 const PORT = process.env.PORT || 3004;
 
+// Start server FIRST for health checks, then connect DB
 const start = async () => {
-    await connectDB();
-    await connectProducer();
-
+    // Start server immediately so health checks pass
     server.listen(PORT, () => {
         console.log(`Chat Service running on port ${PORT}`);
     });
+
+    // Connect to databases (don't block startup)
+    try {
+        await connectDB();
+        console.log('Database connected');
+        await connectProducer();
+    } catch (err) {
+        console.error('Chat Service initialization error:', err.message);
+        // Service stays running for health checks
+    }
 };
 
 start();

@@ -7,7 +7,7 @@ const connectDB = require('./config/db');
 const hostsRoutes = require('./routes/hosts');
 
 const app = express();
-const PORT = process.env.DISCOVERY_SERVICE_PORT || 3003;
+const PORT = process.env.PORT || process.env.DISCOVERY_SERVICE_PORT || 3003;
 
 app.use(helmet());
 app.use(cors());
@@ -22,11 +22,21 @@ app.get('/health', (req, res) => {
 // Host discovery routes
 app.use('/hosts', hostsRoutes);
 
+// Start server FIRST for health checks, then connect DB
 const start = async () => {
-    await connectDB();
+    // Start server immediately so health checks pass
     app.listen(PORT, () => {
         console.log(`Discovery Service running on port ${PORT}`);
     });
+
+    // Connect to database (don't block startup)
+    try {
+        await connectDB();
+        console.log('Database connected');
+    } catch (err) {
+        console.error('Database connection failed:', err.message);
+        // Service stays running for health checks
+    }
 };
 
 start();

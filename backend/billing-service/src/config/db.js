@@ -1,12 +1,20 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: parseInt(process.env.POSTGRES_PORT) || 5432,
-    database: process.env.POSTGRES_DB || 'o8m_db',
-    user: process.env.POSTGRES_USER || 'o8m_user',
-    password: process.env.POSTGRES_PASSWORD || 'change_me',
-});
+// Support DATABASE_URL (Render) or individual env vars (Docker)
+const poolConfig = process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    }
+    : {
+        host: process.env.POSTGRES_HOST || 'localhost',
+        port: parseInt(process.env.POSTGRES_PORT) || 5432,
+        database: process.env.POSTGRES_DB || 'o8m_db',
+        user: process.env.POSTGRES_USER || 'o8m_user',
+        password: process.env.POSTGRES_PASSWORD || 'change_me',
+    };
+
+const pool = new Pool(poolConfig);
 
 // Create billing tables
 const initDB = async () => {
