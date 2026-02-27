@@ -9,6 +9,7 @@ client/.pub/
 .env
 *.env.local
 IMPLEMENTATION_PLAN.md
+RENDER_DEPLOYMENT.md
 
 # Build outputs
 client/build/
