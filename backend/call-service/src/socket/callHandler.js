@@ -7,7 +7,7 @@ const { publishEvent } = require('../config/kafka');
 const BILLING_SERVICE_URL = process.env.BILLING_SERVICE_URL || 'http://billing-service:3006';
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://user-service:3002';
 const CALL_TIMEOUT_MS = 30000; // 30 seconds to answer
-const RECONNECT_WINDOW_MS = parseInt(process.env.RECONNECT_WINDOW_SECONDS || 10) * 1000;
+const RECONNECT_WINDOW_MS = parseInt(process.env.RECONNECT_WINDOW_SECONDS || 30) * 1000;
 
 // Track timeout timers: sessionId → timeoutId
 const callTimeouts = new Map();
@@ -15,7 +15,7 @@ const callTimeouts = new Map();
 const reconnectTimers = new Map();
 // Track offline grace timers: userId → timeoutId (5 second grace before going offline)
 const offlineGraceTimers = new Map();
-const OFFLINE_GRACE_MS = 5000; // 5 seconds grace period for page refreshes
+const OFFLINE_GRACE_MS = 10000; // 10 seconds grace period for page refreshes / reconnects
 
 module.exports = function callHandler(io, socket) {
     const userId = socket.handshake.auth?.userId || socket.handshake.query?.userId;

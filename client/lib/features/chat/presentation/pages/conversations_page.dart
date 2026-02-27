@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:o8m_marketplace/core/constants/api_constants.dart';
 import 'package:o8m_marketplace/core/storage/token_storage.dart';
 import 'package:o8m_marketplace/features/chat/data/chat_service.dart';
 import 'package:o8m_marketplace/features/chat/data/socket_service.dart';
@@ -15,6 +18,8 @@ class _ConversationsPageState extends State<ConversationsPage> {
   List<dynamic> _conversations = [];
   bool _loading = true;
   String? _currentUserId;
+  // userId -> displayName cache
+  final Map<String, String> _displayNames = {};
 
   @override
   void initState() {
@@ -41,6 +46,25 @@ class _ConversationsPageState extends State<ConversationsPage> {
 
   Future<void> _loadConversations() async {
     final convos = await ChatService.getConversations();
+    if (!mounted) return;
+
+    // Collect all other-user IDs we don't have cached yet
+    final idsToFetch = <String>{};
+    for (final c in convos) {
+      final convo = c as Map<String, dynamic>;
+      final otherId = _currentUserId == convo['callerId']
+          ? convo['hostId'] as String
+          : convo['callerId'] as String;
+      if (!_displayNames.containsKey(otherId)) {
+        idsToFetch.add(otherId);
+      }
+    }
+
+    // Batch-fetch display names in parallel
+    if (idsToFetch.isNotEmpty) {
+      await Future.wait(idsToFetch.map(_fetchDisplayName));
+    }
+
     if (mounted) {
       setState(() {
         _conversations = convos;
@@ -49,18 +73,39 @@ class _ConversationsPageState extends State<ConversationsPage> {
     }
   }
 
-  String _getOtherUserName(Map<String, dynamic> convo) {
-    // Show the other participant's ID (in a full app, we'd resolve display names)
-    if (_currentUserId == convo['callerId']) {
-      return 'Host ${(convo['hostId'] as String).substring(0, 8)}...';
+  Future<void> _fetchDisplayName(String userId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConstants.userBase}/profile/public/$userId'),
+      ).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final name = data['profile']?['displayName'] as String?;
+        if (name != null && name.isNotEmpty) {
+          _displayNames[userId] = name;
+        }
+      }
+    } catch (_) {
+      // Keep old value (or absent — fallback used below)
     }
-    return 'Caller ${(convo['callerId'] as String).substring(0, 8)}...';
+  }
+
+  String _getOtherUserName(Map<String, dynamic> convo) {
+    final otherId = _getOtherUserId(convo);
+    if (_displayNames.containsKey(otherId)) {
+      return _displayNames[otherId]!;
+    }
+    // Fallback while loading or if name unavailable
+    final isHost = _currentUserId == convo['callerId'];
+    return isHost
+        ? 'Host ${otherId.substring(0, 8)}...'
+        : 'User ${otherId.substring(0, 8)}...';
   }
 
   String _getOtherUserId(Map<String, dynamic> convo) {
     return _currentUserId == convo['callerId']
-        ? convo['hostId']
-        : convo['callerId'];
+        ? convo['hostId'] as String
+        : convo['callerId'] as String;
   }
 
   String _formatTime(String? dateStr) {
