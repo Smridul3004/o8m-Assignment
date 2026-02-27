@@ -47,6 +47,39 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /profile/public/:userId — get any user's public profile (explicit URL used by other services)
+router.get('/public/:userId', async (req, res) => {
+    try {
+        const profile = await Profile.findOne({ userId: req.params.userId });
+        if (!profile) {
+            return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        res.json({
+            profile: {
+                userId: profile.userId,
+                email: profile.email,
+                displayName: profile.displayName,
+                bio: profile.bio,
+                avatarUrl: profile.avatarUrl,
+                role: profile.role,
+                ratePerMinute: profile.ratePerMinute,
+                audioRate: profile.audioRate,
+                videoRate: profile.videoRate,
+                messageRate: profile.messageRate,
+                expertise: profile.expertise,
+                isAvailable: profile.isAvailable,
+                availabilityStatus: profile.availabilityStatus,
+                totalCalls: profile.totalCalls,
+                averageRating: profile.averageRating,
+            },
+        });
+    } catch (err) {
+        console.error('Get public profile error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // GET /profile/:userId — get any user's public profile
 router.get('/:userId', async (req, res) => {
     try {
@@ -59,6 +92,7 @@ router.get('/:userId', async (req, res) => {
         res.json({
             profile: {
                 userId: profile.userId,
+                email: profile.email,
                 displayName: profile.displayName,
                 bio: profile.bio,
                 avatarUrl: profile.avatarUrl,

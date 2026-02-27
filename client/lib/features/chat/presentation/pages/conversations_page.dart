@@ -80,9 +80,15 @@ class _ConversationsPageState extends State<ConversationsPage> {
       ).timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final name = data['profile']?['displayName'] as String?;
+        final profile = data['profile'] as Map<String, dynamic>?;
+        final name = profile?['displayName'] as String?;
+        final email = profile?['email'] as String?;
         if (name != null && name.isNotEmpty) {
-          _displayNames[userId] = name;
+          // Show "DisplayName (email)" if email is available, else just name
+          _displayNames[userId] =
+              (email != null && email.isNotEmpty) ? '$name ($email)' : name;
+        } else if (email != null && email.isNotEmpty) {
+          _displayNames[userId] = email;
         }
       }
     } catch (_) {
