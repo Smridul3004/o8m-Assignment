@@ -32,3 +32,6 @@ logs/
 
 # Docker volumes
 data/
+
+
+RENDER_DEPLOYMENT.md
