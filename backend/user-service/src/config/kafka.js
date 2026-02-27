@@ -1,17 +1,26 @@
 const { Kafka, logLevel } = require('kafkajs');
 const Profile = require('../models/Profile');
 
-const kafka = new Kafka({
-    clientId: 'user-service',
-    brokers: [process.env.KAFKA_BROKERS || 'localhost:9092'],
-    retry: { retries: 1 },
-    connectionTimeout: 3000,
-    logLevel: logLevel.WARN,
-});
+// Skip Kafka if not configured
+const KAFKA_ENABLED = process.env.KAFKA_BROKERS && process.env.KAFKA_BROKERS !== 'localhost:9092';
 
-const consumer = kafka.consumer({ groupId: 'user-service-group' });
+let kafka, consumer;
+if (KAFKA_ENABLED) {
+    kafka = new Kafka({
+        clientId: 'user-service',
+        brokers: [process.env.KAFKA_BROKERS],
+        retry: { retries: 1 },
+        connectionTimeout: 3000,
+        logLevel: logLevel.WARN,
+    });
+    consumer = kafka.consumer({ groupId: 'user-service-group' });
+}
 
 const startConsumer = async () => {
+    if (!KAFKA_ENABLED) {
+        console.log('Kafka not configured, skipping consumer');
+        return;
+    }
     try {
         await consumer.connect();
         await consumer.subscribe({ topic: 'user.registered', fromBeginning: true });

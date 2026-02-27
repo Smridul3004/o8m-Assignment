@@ -1,16 +1,26 @@
 const { Kafka } = require('kafkajs');
 
-const kafka = new Kafka({
-    clientId: 'auth-service',
-    brokers: [process.env.KAFKA_BROKER || 'localhost:9092'],
-    retry: { retries: 1 },
-    connectionTimeout: 3000,
-});
+// Skip Kafka entirely if not configured
+const KAFKA_ENABLED = process.env.KAFKA_BROKER && process.env.KAFKA_BROKER !== 'localhost:9092';
 
-const producer = kafka.producer();
+let kafka, producer;
 let isConnected = false;
 
+if (KAFKA_ENABLED) {
+    kafka = new Kafka({
+        clientId: 'auth-service',
+        brokers: [process.env.KAFKA_BROKER],
+        retry: { retries: 1 },
+        connectionTimeout: 3000,
+    });
+    producer = kafka.producer();
+}
+
 async function connectProducer() {
+    if (!KAFKA_ENABLED) {
+        console.log('Kafka not configured, skipping connection');
+        return;
+    }
     try {
         await producer.connect();
         isConnected = true;

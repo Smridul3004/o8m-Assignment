@@ -2,15 +2,20 @@ const { Kafka, logLevel } = require('kafkajs');
 const Notification = require('../models/Notification');
 const { sendPushToUser } = require('./push');
 
-const kafka = new Kafka({
-    clientId: 'notification-service',
-    brokers: [process.env.KAFKA_BROKERS || 'localhost:9092'],
-    retry: { retries: 3 },
-    connectionTimeout: 5000,
-    logLevel: logLevel.WARN,
-});
+// Skip Kafka if not configured
+const KAFKA_ENABLED = process.env.KAFKA_BROKERS && process.env.KAFKA_BROKERS !== 'localhost:9092';
 
-const consumer = kafka.consumer({ groupId: 'notification-group' });
+let kafka, consumer;
+if (KAFKA_ENABLED) {
+    kafka = new Kafka({
+        clientId: 'notification-service',
+        brokers: [process.env.KAFKA_BROKERS],
+        retry: { retries: 2 },
+        connectionTimeout: 3000,
+        logLevel: logLevel.WARN,
+    });
+    consumer = kafka.consumer({ groupId: 'notification-group' });
+}
 
 /**
  * Map Kafka topics to notification builders.
@@ -58,6 +63,10 @@ const topicHandlers = {
 };
 
 async function startKafkaConsumer() {
+    if (!KAFKA_ENABLED) {
+        console.log('Kafka not configured, skipping consumer');
+        return;
+    }
     await consumer.connect();
     console.log('Notification Kafka consumer connected');
 
