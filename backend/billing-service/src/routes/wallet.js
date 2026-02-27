@@ -1,6 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const { pool } = require('../config/db');
+
+const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://user-service:3002';
+
+// Helper to fetch username from user-service
+async function getUserDisplayName(userId) {
+    try {
+        const res = await axios.get(`${USER_SERVICE_URL}/profile/public/${userId}`, { timeout: 2000 });
+        return res.data?.profile?.displayName || res.data?.profile?.email?.split('@')[0] || 'User';
+    } catch (e) {
+        return 'User';
+    }
+}
 
 // GET /wallet — get current user's wallet
 router.get('/', async (req, res) => {
@@ -171,6 +184,12 @@ router.post('/deduct-message', async (req, res) => {
         const hostEarning = MESSAGE_COST * (1 - PLATFORM_CUT);
         const platformAmount = MESSAGE_COST * PLATFORM_CUT;
 
+        // Fetch display names for better transaction descriptions (don't block on this)
+        const [callerName, hostName] = await Promise.all([
+            getUserDisplayName(callerId),
+            getUserDisplayName(hostId),
+        ]);
+
         await client.query('BEGIN');
 
         // Get caller wallet
@@ -198,8 +217,8 @@ router.post('/deduct-message', async (req, res) => {
         );
         await client.query(
             `INSERT INTO transactions (wallet_id, user_id, type, amount, description, balance_after)
-             VALUES ($1, $2, 'MESSAGE_SENT', $3, 'Message sent', $4)`,
-            [caller.id, callerId, -MESSAGE_COST, callerNewBalance]
+             VALUES ($1, $2, 'MESSAGE_SENT', $3, $4, $5)`,
+            [caller.id, callerId, -MESSAGE_COST, `Message to ${hostName}`, callerNewBalance]
         );
 
         // Credit host
@@ -220,8 +239,8 @@ router.post('/deduct-message', async (req, res) => {
         );
         await client.query(
             `INSERT INTO transactions (wallet_id, user_id, type, amount, description, balance_after)
-             VALUES ($1, $2, 'MESSAGE_RECEIVED', $3, 'Message received', $4)`,
-            [host.id, hostId, hostEarning, hostNewBalance]
+             VALUES ($1, $2, 'MESSAGE_RECEIVED', $3, $4, $5)`,
+            [host.id, hostId, hostEarning, `Message from ${callerName}`, hostNewBalance]
         );
 
         // Platform ledger entry
@@ -321,6 +340,12 @@ router.post('/deduct-minute', async (req, res) => {
         const PLATFORM_CUT = parseFloat(process.env.PLATFORM_CUT_PERCENT || 30) / 100;
         const hostEarning = rate * (1 - PLATFORM_CUT);
 
+        // Fetch display names for better transaction descriptions
+        const [callerName, hostName] = await Promise.all([
+            getUserDisplayName(callerId),
+            getUserDisplayName(hostId),
+        ]);
+
         await client.query('BEGIN');
 
         // Idempotency check
@@ -365,7 +390,7 @@ router.post('/deduct-minute', async (req, res) => {
         await client.query(
             `INSERT INTO transactions (wallet_id, user_id, type, amount, description, reference_id, balance_after)
              VALUES ($1, $2, 'CALL_MINUTE', $3, $4, $5, $6)`,
-            [caller.id, callerId, -rate, `Call minute - session ${sessionId}`, eventId, callerNewBalance]
+            [caller.id, callerId, -rate, `Call with ${hostName}`, eventId, callerNewBalance]
         );
 
         // Credit host
@@ -387,7 +412,7 @@ router.post('/deduct-minute', async (req, res) => {
         await client.query(
             `INSERT INTO transactions (wallet_id, user_id, type, amount, description, reference_id, balance_after)
              VALUES ($1, $2, 'CALL_EARNING', $3, $4, $5, $6)`,
-            [host.id, hostId, hostEarning, `Call earning - session ${sessionId}`, eventId, hostNewBalance]
+            [host.id, hostId, hostEarning, `Call with ${callerName}`, eventId, hostNewBalance]
         );
 
         // Platform ledger entry

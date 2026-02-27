@@ -122,6 +122,52 @@ async function _createTracks() {
 }
 
 // ---------------------------------------------------------------------------
+// Reconnection helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Re-publish local tracks after a reconnection event.
+ * Called when connection state goes from RECONNECTING/DISCONNECTED -> CONNECTED
+ */
+async function _republishTracksAfterReconnect() {
+    if (!_videoClient) return;
+    
+    try {
+        // Check if tracks still exist and are valid
+        const tracksToPublish = [];
+        
+        if (_localVideoAudioTrack && !_localVideoAudioTrack.isClosed) {
+            tracksToPublish.push(_localVideoAudioTrack);
+        }
+        if (_localVideoTrack && !_localVideoTrack.isClosed) {
+            tracksToPublish.push(_localVideoTrack);
+        }
+        
+        if (tracksToPublish.length > 0) {
+            // Only republish if not already published
+            const published = _videoClient.localTracks || [];
+            const needsRepublish = tracksToPublish.filter(t => !published.includes(t));
+            
+            if (needsRepublish.length > 0) {
+                await _videoClient.publish(needsRepublish);
+                console.log('[AgoraVideo] Re-published ' + needsRepublish.length + ' track(s) after reconnect');
+            }
+        }
+        
+        // Re-play local preview if needed
+        if (_localVideoTrack && !_localVideoTrack.isClosed) {
+            const localEl = document.getElementById('agora-local-video');
+            if (localEl && localEl.innerHTML === '') {
+                _localVideoTrack.play(localEl);
+                console.log('[AgoraVideo] Re-played local preview after reconnect');
+            }
+        }
+    } catch (err) {
+        console.error('[AgoraVideo] Re-publish after reconnect error:', err.message || err);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Cleanup
 // ---------------------------------------------------------------------------
 
@@ -191,8 +237,24 @@ async function agoraVideoJoin(appId, channel, token, uid) {
             console.log('[AgoraVideo] user-joined  uid=' + u.uid));
         _videoClient.on('user-left', (u, r) =>
             console.log('[AgoraVideo] user-left  uid=' + u.uid + '  reason=' + r));
-        _videoClient.on('connection-state-change', (cur, prev) =>
-            console.log('[AgoraVideo] conn-state  ' + prev + ' -> ' + cur));
+        
+        // Handle connection state changes for reconnection
+        _videoClient.on('connection-state-change', (cur, prev) => {
+            console.log('[AgoraVideo] conn-state  ' + prev + ' -> ' + cur);
+            // Notify Flutter of connection state changes
+            window.dispatchEvent(new CustomEvent('agora-connection-state', {
+                detail: { current: cur, previous: prev }
+            }));
+            
+            // Handle reconnection scenarios
+            if (cur === 'DISCONNECTED' && prev === 'CONNECTED') {
+                console.warn('[AgoraVideo] Connection lost, Agora will auto-reconnect');
+            } else if (cur === 'CONNECTED' && (prev === 'RECONNECTING' || prev === 'DISCONNECTED')) {
+                console.log('[AgoraVideo] Reconnected successfully');
+                // Re-publish local tracks after reconnection
+                _republishTracksAfterReconnect();
+            }
+        });
 
         // ── 4. Join the channel ─────────────────────────────────────────
         const resolvedToken = (token && !token.startsWith('demo_')) ? token : null;

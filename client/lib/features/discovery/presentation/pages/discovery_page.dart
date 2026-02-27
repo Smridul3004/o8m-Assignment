@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:o8m_marketplace/core/theme/app_theme.dart';
 import 'package:o8m_marketplace/core/storage/token_storage.dart';
@@ -14,21 +15,37 @@ class DiscoveryPage extends StatefulWidget {
   State<DiscoveryPage> createState() => _DiscoveryPageState();
 }
 
-class _DiscoveryPageState extends State<DiscoveryPage> {
+class _DiscoveryPageState extends State<DiscoveryPage> with WidgetsBindingObserver {
   List<dynamic> _hosts = [];
   bool _isLoading = true;
   final _searchController = TextEditingController();
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadHosts();
+    // Auto-refresh host statuses every 15 seconds
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) _loadHostsSilent();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Refresh when app comes to foreground
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadHostsSilent();
+    }
   }
 
   Future<void> _loadHosts({String? search}) async {
@@ -38,6 +55,18 @@ class _DiscoveryPageState extends State<DiscoveryPage> {
     setState(() {
       _hosts = data['hosts'] ?? [];
       _isLoading = false;
+    });
+  }
+
+  /// Silent refresh without showing loading indicator (preserves UI state)
+  Future<void> _loadHostsSilent() async {
+    final searchText = _searchController.text.trim();
+    final data = await DiscoveryService.getHosts(
+      search: searchText.isNotEmpty ? searchText : null,
+    );
+    if (!mounted) return;
+    setState(() {
+      _hosts = data['hosts'] ?? [];
     });
   }
 
@@ -54,8 +83,43 @@ class _DiscoveryPageState extends State<DiscoveryPage> {
           Navigator.pop(ctx); // dismiss the bottom sheet
           _initiateCall(host, callType);
         },
+        onMessage: () {
+          Navigator.pop(ctx); // dismiss the bottom sheet first
+          _startMessage(host);
+        },
       ),
     );
+  }
+
+  /// Start a message conversation using the parent page context (survives bottom sheet pop).
+  Future<void> _startMessage(Map<String, dynamic> host) async {
+    final hostUserId = host['userId'] as String? ?? '';
+    final hostName = (host['displayName'] ?? 'Host').toString();
+    if (hostUserId.isEmpty) return;
+
+    final user = await TokenStorage.getUser();
+    final convo = await ChatService.createConversation(hostUserId);
+    if (convo != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatPage(
+            conversationId: convo['_id'],
+            otherUserId: hostUserId,
+            otherUserName: hostName.isNotEmpty ? hostName : 'Host',
+            isCaller: user['id'] != hostUserId,
+          ),
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to start conversation. Please try again.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   /// Initiate a call using the parent page context (survives bottom sheet pop).
@@ -391,8 +455,13 @@ class _HostCard extends StatelessWidget {
 class _HostDetailSheet extends StatelessWidget {
   final Map<String, dynamic> host;
   final void Function(String callType) onStartCall;
+  final VoidCallback onMessage;
 
-  const _HostDetailSheet({required this.host, required this.onStartCall});
+  const _HostDetailSheet({
+    required this.host,
+    required this.onStartCall,
+    required this.onMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -631,27 +700,7 @@ class _HostDetailSheet extends StatelessWidget {
             width: double.infinity,
             height: 52,
             child: OutlinedButton.icon(
-              onPressed: () async {
-                Navigator.pop(context);
-                final user = await TokenStorage.getUser();
-                final hostUserId = host['userId'] as String? ?? '';
-                if (hostUserId.isEmpty) return;
-
-                final convo = await ChatService.createConversation(hostUserId);
-                if (convo != null && context.mounted) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatPage(
-                        conversationId: convo['_id'],
-                        otherUserId: hostUserId,
-                        otherUserName: name.isNotEmpty ? name : 'Host',
-                        isCaller: user['id'] != hostUserId,
-                      ),
-                    ),
-                  );
-                }
-              },
+              onPressed: onMessage,
               icon: const Icon(Icons.chat_bubble_outline),
               label: Text('Message ${name.isNotEmpty ? name : "Host"}'),
               style: OutlinedButton.styleFrom(

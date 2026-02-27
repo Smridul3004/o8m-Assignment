@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:o8m_marketplace/core/theme/app_theme.dart';
 import 'package:o8m_marketplace/features/billing/data/billing_service.dart';
@@ -9,16 +10,37 @@ class WalletPage extends StatefulWidget {
   State<WalletPage> createState() => _WalletPageState();
 }
 
-class _WalletPageState extends State<WalletPage> {
+class _WalletPageState extends State<WalletPage> with WidgetsBindingObserver {
   Map<String, dynamic>? _wallet;
   List<dynamic> _transactions = [];
   bool _isLoading = true;
   bool _isPurchasing = false;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    // Auto-refresh every 30 seconds when page is visible
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) _loadSilent();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Refresh when app comes to foreground
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadSilent();
+    }
   }
 
   Future<void> _load() async {
@@ -30,6 +52,17 @@ class _WalletPageState extends State<WalletPage> {
       _wallet = wallet;
       _transactions = txns;
       _isLoading = false;
+    });
+  }
+
+  /// Silent refresh without showing loading indicator
+  Future<void> _loadSilent() async {
+    final wallet = await BillingService.getWallet();
+    final txns = await BillingService.getTransactions();
+    if (!mounted) return;
+    setState(() {
+      _wallet = wallet;
+      _transactions = txns;
     });
   }
 

@@ -10,6 +10,29 @@ let _agoraClient = null;
 let _localAudioTrack = null;
 
 /**
+ * Re-publish audio track after reconnection.
+ */
+async function _republishAudioAfterReconnect() {
+    if (!_agoraClient || !_localAudioTrack) return;
+    
+    try {
+        // Check if track is still valid and not already published
+        if (_localAudioTrack.isClosed) {
+            console.log('[Agora] Audio track was closed, creating new one...');
+            _localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        }
+        
+        const published = _agoraClient.localTracks || [];
+        if (!published.includes(_localAudioTrack)) {
+            await _agoraClient.publish([_localAudioTrack]);
+            console.log('[Agora] Re-published audio after reconnect');
+        }
+    } catch (err) {
+        console.error('[Agora] Re-publish audio error:', err.message || err);
+    }
+}
+
+/**
  * Join an Agora channel and publish microphone audio.
  * @param {string} appId    - Agora App ID
  * @param {string} channel  - Channel name (= sessionId)
@@ -97,6 +120,16 @@ async function agoraJoin(appId, channel, token, uid) {
 
         _agoraClient.on('connection-state-change', (curState, revState) => {
             console.log('[Agora] Connection state:', revState, '->', curState);
+            // Notify Flutter of connection state changes
+            window.dispatchEvent(new CustomEvent('agora-connection-state', {
+                detail: { current: curState, previous: revState }
+            }));
+            
+            // Handle reconnection scenarios
+            if (curState === 'CONNECTED' && (revState === 'RECONNECTING' || revState === 'DISCONNECTED')) {
+                console.log('[Agora] Reconnected successfully — re-publishing audio');
+                _republishAudioAfterReconnect();
+            }
         });
 
         _agoraClient.on('exception', (event) => {
