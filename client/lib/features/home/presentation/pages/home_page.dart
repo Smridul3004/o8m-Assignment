@@ -11,6 +11,7 @@ import 'package:o8m_marketplace/features/call/data/call_socket_service.dart';
 import 'package:o8m_marketplace/features/call/data/call_service.dart';
 import 'package:o8m_marketplace/features/call/presentation/pages/incoming_call_page.dart';
 import 'package:o8m_marketplace/features/call/presentation/pages/in_call_page.dart';
+import 'package:o8m_marketplace/features/profile/data/profile_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,7 +34,13 @@ class _HomePageState extends State<HomePage> {
     final userId = user['id'];
     if (userId == null || userId.isEmpty) return;
 
-    // Connect call socket
+    // Run profile ensure and active session check in parallel for faster init
+    final results = await Future.wait([
+      ProfileService.ensureProfile(),
+      CallService.checkActiveSession(),
+    ]);
+
+    // Connect call socket (profile now exists)
     CallSocketService.instance.connect(userId);
 
     // Global incoming call listener
@@ -53,8 +60,8 @@ class _HomePageState extends State<HomePage> {
       );
     });
 
-    // Crash recovery — check for active session
-    final active = await CallService.checkActiveSession();
+    // Crash recovery — check for active session (from parallel result)
+    final active = results[1] as Map<String, dynamic>;
     if (active['hasActiveSession'] == true && active['session'] != null) {
       final session = active['session'] as Map<String, dynamic>;
       if (mounted && session['state'] == 'ACTIVE') {
@@ -75,6 +82,7 @@ class _HomePageState extends State<HomePage> {
                   session['answeredAt'] ?? DateTime.now().toIso8601String(),
               agoraToken: '',
               agoraAppId: '',
+              callType: session['callType'] ?? 'AUDIO',
             ),
           ),
         );

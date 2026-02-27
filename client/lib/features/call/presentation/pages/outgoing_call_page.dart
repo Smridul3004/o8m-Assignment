@@ -9,6 +9,7 @@ class OutgoingCallPage extends StatefulWidget {
   final String hostId;
   final String hostName;
   final double ratePerMinute;
+  final String callType;
 
   const OutgoingCallPage({
     super.key,
@@ -16,6 +17,7 @@ class OutgoingCallPage extends StatefulWidget {
     required this.hostId,
     required this.hostName,
     required this.ratePerMinute,
+    this.callType = 'AUDIO',
   });
 
   @override
@@ -60,6 +62,7 @@ class _OutgoingCallPageState extends State<OutgoingCallPage>
             answeredAt: data['answeredAt'] ?? DateTime.now().toIso8601String(),
             agoraToken: token,
             agoraAppId: appId,
+            callType: data['callType'] ?? widget.callType,
           ),
         ),
       );

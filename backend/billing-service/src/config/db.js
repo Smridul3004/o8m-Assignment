@@ -49,6 +49,18 @@ const initDB = async () => {
             );
 
             CREATE INDEX IF NOT EXISTS idx_pre_auth_user ON pre_authorisations(user_id);
+
+            CREATE TABLE IF NOT EXISTS platform_ledger (
+                id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                event_id VARCHAR(255),
+                session_id VARCHAR(255),
+                amount DECIMAL(12,2) NOT NULL,
+                type VARCHAR(30) NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_platform_ledger_session ON platform_ledger(session_id);
+            CREATE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(reference_id);
         `);
         console.log('Billing tables ready');
     } finally {

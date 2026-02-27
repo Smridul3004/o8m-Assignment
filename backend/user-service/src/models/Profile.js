@@ -30,10 +30,25 @@ const profileSchema = new mongoose.Schema({
         type: String,
         default: '',
     },
-    // Host-specific fields
+    // Host-specific fields — separate rates for audio, video, message
     ratePerMinute: {
         type: Number,
         default: 0,
+        min: 0,
+    },
+    audioRate: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    videoRate: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    messageRate: {
+        type: Number,
+        default: 1.0,
         min: 0,
     },
     expertise: {
@@ -43,6 +58,11 @@ const profileSchema = new mongoose.Schema({
     isAvailable: {
         type: Boolean,
         default: false,
+    },
+    availabilityStatus: {
+        type: String,
+        enum: ['ONLINE', 'BUSY', 'OFFLINE', 'IN_CALL'],
+        default: 'OFFLINE',
     },
     // Stats
     totalCalls: {

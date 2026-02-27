@@ -37,10 +37,14 @@ const io = new Server(server, {
 });
 
 // Redis adapter for Socket.io scalability
-const pubClient = new Redis({
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT) || 6379,
-});
+// Support REDIS_URL (Render/Heroku) or REDIS_HOST/REDIS_PORT (local)
+const redisConfig = process.env.REDIS_URL
+    ? process.env.REDIS_URL
+    : {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT) || 6379,
+    };
+const pubClient = new Redis(redisConfig);
 const subClient = pubClient.duplicate();
 
 Promise.all([pubClient.ping(), subClient.ping()])

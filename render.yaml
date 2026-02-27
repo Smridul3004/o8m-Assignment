@@ -1,0 +1,146 @@
+# Render Blueprint for O8M Marketplace
+# Deploy via: https://dashboard.render.com/blueprints
+# After pushing to GitHub, connect the repo to Render
+#
+# NOTE: Due to service interdependencies, you may need to:
+# 1. Deploy databases first
+# 2. Deploy services (they'll fail initially)
+# 3. Add environment variables with actual service URLs
+# 4. Redeploy services
+#
+# See RENDER_DEPLOYMENT.md for detailed instructions
+
+databases:
+  # PostgreSQL for auth-service and billing-service
+  - name: o8m-postgres
+    plan: free
+    databaseName: o8m_db
+    user: o8m_user
+
+services:
+  # ============ Backend Microservices ============
+
+  - type: web
+    name: o8m-auth-service
+    runtime: docker
+    dockerfilePath: ./backend/auth-service/Dockerfile
+    dockerContext: ./backend/auth-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: DATABASE_URL
+        fromDatabase:
+          name: o8m-postgres
+          property: connectionString
+
+  - type: web
+    name: o8m-user-service
+    runtime: docker
+    dockerfilePath: ./backend/user-service/Dockerfile
+    dockerContext: ./backend/user-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3002
+      - key: MONGO_URI
+        sync: false # Set to MongoDB Atlas connection string
+
+  - type: web
+    name: o8m-discovery-service
+    runtime: docker
+    dockerfilePath: ./backend/discovery-service/Dockerfile
+    dockerContext: ./backend/discovery-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3003
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false # Set to Upstash Redis URL
+
+  - type: web
+    name: o8m-chat-service
+    runtime: docker
+    dockerfilePath: ./backend/chat-service/Dockerfile
+    dockerContext: ./backend/chat-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3004
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+
+  - type: web
+    name: o8m-call-service
+    runtime: docker
+    dockerfilePath: ./backend/call-service/Dockerfile
+    dockerContext: ./backend/call-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3005
+      - key: REDIS_URL
+        sync: false
+      - key: AGORA_APP_ID
+        value: 8140f62fea4f4f2b9bebaecd2b07ebb4
+      - key: AGORA_APP_CERTIFICATE
+        value: 7e70d82434d146f58227dc5e3f473238
+      - key: USER_SERVICE_URL
+        sync: false # Set after deployment: https://o8m-user-service.onrender.com
+      - key: BILLING_SERVICE_URL
+        sync: false # Set after deployment: https://o8m-billing-service.onrender.com
+
+  - type: web
+    name: o8m-billing-service
+    runtime: docker
+    dockerfilePath: ./backend/billing-service/Dockerfile
+    dockerContext: ./backend/billing-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3006
+      - key: DATABASE_URL
+        fromDatabase:
+          name: o8m-postgres
+          property: connectionString
+
+  - type: web
+    name: o8m-notification-service
+    runtime: docker
+    dockerfilePath: ./backend/notification-service/Dockerfile
+    dockerContext: ./backend/notification-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3007
+      - key: MONGO_URI
+        sync: false

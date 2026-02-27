@@ -5,6 +5,7 @@ const Message = require('../models/Message');
 const { publishEvent } = require('../config/kafka');
 
 const BILLING_SERVICE_URL = process.env.BILLING_SERVICE_URL || 'http://billing-service:3006';
+const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://user-service:3002';
 
 module.exports = function chatHandler(io) {
     io.on('connection', (socket) => {
@@ -81,12 +82,27 @@ module.exports = function chatHandler(io) {
                 const senderIsCaller = convo.callerId === userId;
                 if (senderIsCaller) {
                     try {
+                        // Fetch host's messageRate from user service
+                        let messageRate;
+                        try {
+                            const profileRes = await axios.get(
+                                `${USER_SERVICE_URL}/profile/public/${convo.hostId}`,
+                                { timeout: 3000 }
+                            );
+                            messageRate = profileRes.data?.profile?.messageRate;
+                        } catch (e) {
+                            console.warn('Could not fetch host messageRate, using default');
+                        }
+
+                        const billingPayload = {
+                            callerId: convo.callerId,
+                            hostId: convo.hostId,
+                        };
+                        if (messageRate) billingPayload.messageRate = messageRate;
+
                         const billingRes = await axios.post(
                             `${BILLING_SERVICE_URL}/wallet/deduct-message`,
-                            {
-                                callerId: convo.callerId,
-                                hostId: convo.hostId,
-                            },
+                            billingPayload,
                             { timeout: 5000 }
                         );
 

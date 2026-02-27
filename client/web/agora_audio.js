@@ -56,6 +56,28 @@ async function agoraJoin(appId, channel, token, uid) {
                         console.warn('[Agora] ⚠️ No audioTrack on user after subscribe');
                     }
                 }
+
+                // Handle video track (published after audio→video upgrade)
+                if (mediaType === 'video') {
+                    const remoteVideoTrack = user.videoTrack;
+                    if (remoteVideoTrack) {
+                        // The remote video container should always be in the DOM now
+                        // (Flutter keeps HtmlElementView in the widget tree permanently).
+                        // Use _waitForElement with generous timeout as a safety net.
+                        const container = (typeof _waitForElement === 'function')
+                            ? await _waitForElement('agora-remote-video', 15000)
+                            : document.getElementById('agora-remote-video');
+                        if (container) {
+                            container.innerHTML = '';
+                            remoteVideoTrack.play(container);
+                            console.log('[Agora] ✅ Playing remote video from uid:', user.uid);
+                        } else {
+                            // Store for later — agoraUpgradeToVideo can try to replay
+                            window._pendingRemoteVideoTrack = remoteVideoTrack;
+                            console.warn('[Agora] ⚠️ No #agora-remote-video container — track saved for later');
+                        }
+                    }
+                }
             } catch (subErr) {
                 console.error('[Agora] Subscribe error:', subErr);
             }

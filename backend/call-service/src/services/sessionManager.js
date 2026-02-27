@@ -7,7 +7,7 @@ const RINGING_TTL = 35;   // seconds — slightly longer than 30s timeout
 const ACTIVE_TTL = 7200;  // 2 hours max call duration
 
 const sessionManager = {
-    async createSession({ callerId, hostId, callType, ratePerMinute }) {
+    async createSession({ callerId, hostId, callType, ratePerMinute, audioRate, videoRate }) {
         const sessionId = uuidv4();
         const session = {
             sessionId,
@@ -16,6 +16,8 @@ const sessionManager = {
             callType: callType || 'AUDIO',
             state: 'INITIATED',
             ratePerMinute: parseFloat(ratePerMinute) || 1.0,
+            audioRate: parseFloat(audioRate) || parseFloat(ratePerMinute) || 1.0,
+            videoRate: parseFloat(videoRate) || (parseFloat(ratePerMinute) || 1.0) * 1.5,
             createdAt: new Date().toISOString(),
             answeredAt: null,
             endedAt: null,
@@ -86,7 +88,7 @@ const sessionManager = {
             return null;
         }
 
-        if (session.state === 'ACTIVE' || session.state === 'RINGING' || session.state === 'INITIATED') {
+        if (session.state === 'ACTIVE' || session.state === 'RINGING' || session.state === 'INITIATED' || session.state === 'RECONNECTING') {
             return session;
         }
 

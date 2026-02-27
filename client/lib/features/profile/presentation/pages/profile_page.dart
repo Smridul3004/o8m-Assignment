@@ -16,7 +16,11 @@ class _ProfilePageState extends State<ProfilePage> {
   final _displayNameController = TextEditingController();
   final _bioController = TextEditingController();
   final _rateController = TextEditingController();
+  final _audioRateController = TextEditingController();
+  final _videoRateController = TextEditingController();
+  final _messageRateController = TextEditingController();
   final _expertiseController = TextEditingController();
+  String _availabilityStatus = 'OFFLINE';
 
   @override
   void initState() {
@@ -29,6 +33,9 @@ class _ProfilePageState extends State<ProfilePage> {
     _displayNameController.dispose();
     _bioController.dispose();
     _rateController.dispose();
+    _audioRateController.dispose();
+    _videoRateController.dispose();
+    _messageRateController.dispose();
     _expertiseController.dispose();
     super.dispose();
   }
@@ -45,8 +52,14 @@ class _ProfilePageState extends State<ProfilePage> {
         _displayNameController.text = profile['displayName'] ?? '';
         _bioController.text = profile['bio'] ?? '';
         _rateController.text = (profile['ratePerMinute'] ?? 0).toString();
+        _audioRateController.text =
+            (profile['audioRate'] ?? profile['ratePerMinute'] ?? 0).toString();
+        _videoRateController.text = (profile['videoRate'] ?? 0).toString();
+        _messageRateController.text = (profile['messageRate'] ?? 1.0)
+            .toString();
         final expertiseList = profile['expertise'] as List<dynamic>? ?? [];
         _expertiseController.text = expertiseList.join(', ');
+        _availabilityStatus = profile['availabilityStatus'] ?? 'OFFLINE';
       }
     });
   }
@@ -66,10 +79,17 @@ class _ProfilePageState extends State<ProfilePage> {
       expertise: expertise,
     );
 
-    // If host, also set rate
+    // If host, also set rates
     if (_profile?['role'] == 'HOST') {
-      final rate = double.tryParse(_rateController.text) ?? 0;
-      await ProfileService.setRate(rate);
+      final audioRate = double.tryParse(_audioRateController.text) ?? 0;
+      final videoRate = double.tryParse(_videoRateController.text) ?? 0;
+      final messageRate = double.tryParse(_messageRateController.text) ?? 1.0;
+      await ProfileService.setRate(
+        audioRate,
+        audioRate: audioRate,
+        videoRate: videoRate > 0 ? videoRate : audioRate * 1.5,
+        messageRate: messageRate,
+      );
     }
 
     if (!mounted) return;
@@ -233,21 +253,92 @@ class _ProfilePageState extends State<ProfilePage> {
 
               // Host-only fields
               if (isHost) ...[
+                // Availability status toggle
                 const Text(
-                  'Rate per Minute (credits)',
+                  'Availability Status',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: ['ONLINE', 'BUSY', 'OFFLINE'].map((status) {
+                    final isSelected = _availabilityStatus == status;
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: ChoiceChip(
+                          label: Text(
+                            status,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppTheme.textSecondary,
+                            ),
+                          ),
+                          selected: isSelected,
+                          selectedColor: status == 'ONLINE'
+                              ? AppTheme.success
+                              : status == 'BUSY'
+                              ? Colors.orange
+                              : AppTheme.textSecondary,
+                          onSelected: (_) async {
+                            setState(() => _availabilityStatus = status);
+                            await ProfileService.setAvailability(status);
+                          },
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+
+                const Text(
+                  'Audio Rate per Minute (credits)',
                   style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
-                  controller: _rateController,
+                  controller: _audioRateController,
                   style: const TextStyle(color: AppTheme.textPrimary),
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     hintText: '0.00',
+                    prefixIcon: Icon(Icons.mic, color: AppTheme.textSecondary),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                const Text(
+                  'Video Rate per Minute (credits)',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _videoRateController,
+                  style: const TextStyle(color: AppTheme.textPrimary),
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    hintText: 'Must be higher than audio rate',
                     prefixIcon: Icon(
-                      Icons.monetization_on,
+                      Icons.videocam,
                       color: AppTheme.textSecondary,
                     ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                const Text(
+                  'Message Rate (credits per message)',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _messageRateController,
+                  style: const TextStyle(color: AppTheme.textPrimary),
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    hintText: '1.00',
+                    prefixIcon: Icon(Icons.chat, color: AppTheme.textSecondary),
                   ),
                 ),
                 const SizedBox(height: 20),

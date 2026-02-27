@@ -111,18 +111,65 @@ router.get('/transactions', async (req, res) => {
     }
 });
 
+// GET /wallet/earnings — get host earnings summary and history
+router.get('/earnings', async (req, res) => {
+    try {
+        const userId = req.headers['x-user-id'];
+        if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+
+        const { page = 1, limit = 20 } = req.query;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+
+        // Get total earnings
+        let walletRes = await pool.query('SELECT * FROM wallets WHERE user_id = $1', [userId]);
+        if (walletRes.rows.length === 0) {
+            walletRes = await pool.query(
+                'INSERT INTO wallets (user_id) VALUES ($1) RETURNING *',
+                [userId]
+            );
+        }
+        const wallet = walletRes.rows[0];
+
+        // Get earning transactions
+        const earnings = await pool.query(
+            `SELECT * FROM transactions WHERE user_id = $1 AND type IN ('CALL_EARNING', 'MESSAGE_RECEIVED')
+             ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+            [userId, parseInt(limit), offset]
+        );
+        const countRes = await pool.query(
+            `SELECT COUNT(*) FROM transactions WHERE user_id = $1 AND type IN ('CALL_EARNING', 'MESSAGE_RECEIVED')`,
+            [userId]
+        );
+
+        res.json({
+            totalEarned: parseFloat(wallet.total_earned),
+            currentBalance: parseFloat(wallet.balance),
+            earnings: earnings.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total: parseInt(countRes.rows[0].count),
+            },
+        });
+    } catch (err) {
+        console.error('Earnings error:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // POST /wallet/deduct-message — called by Chat Service to bill per message
 router.post('/deduct-message', async (req, res) => {
     const client = await pool.connect();
     try {
-        const { callerId, hostId } = req.body;
+        const { callerId, hostId, messageRate } = req.body;
         if (!callerId || !hostId) {
             return res.status(400).json({ error: 'callerId and hostId required' });
         }
 
-        const MESSAGE_COST = 1.00; // credits per message
-        const PLATFORM_CUT = 0.20; // 20% platform fee
+        const MESSAGE_COST = parseFloat(messageRate) || 1.00; // configurable per-message rate
+        const PLATFORM_CUT = parseFloat(process.env.PLATFORM_CUT_PERCENT || 30) / 100;
         const hostEarning = MESSAGE_COST * (1 - PLATFORM_CUT);
+        const platformAmount = MESSAGE_COST * PLATFORM_CUT;
 
         await client.query('BEGIN');
 
@@ -175,6 +222,13 @@ router.post('/deduct-message', async (req, res) => {
             `INSERT INTO transactions (wallet_id, user_id, type, amount, description, balance_after)
              VALUES ($1, $2, 'MESSAGE_RECEIVED', $3, 'Message received', $4)`,
             [host.id, hostId, hostEarning, hostNewBalance]
+        );
+
+        // Platform ledger entry
+        await client.query(
+            `INSERT INTO platform_ledger (event_id, session_id, amount, type)
+             VALUES ($1, $2, $3, 'MESSAGE')`,
+            [`msg_${Date.now()}`, null, platformAmount]
         );
 
         await client.query('COMMIT');
@@ -332,6 +386,14 @@ router.post('/deduct-minute', async (req, res) => {
             `INSERT INTO transactions (wallet_id, user_id, type, amount, description, reference_id, balance_after)
              VALUES ($1, $2, 'CALL_EARNING', $3, $4, $5, $6)`,
             [host.id, hostId, hostEarning, `Call earning - session ${sessionId}`, eventId, hostNewBalance]
+        );
+
+        // Platform ledger entry
+        const platformAmount = rate - hostEarning;
+        await client.query(
+            `INSERT INTO platform_ledger (event_id, session_id, amount, type)
+             VALUES ($1, $2, $3, 'CALL_MINUTE')`,
+            [eventId, sessionId, platformAmount]
         );
 
         await client.query('COMMIT');

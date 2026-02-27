@@ -48,7 +48,65 @@ class _DiscoveryPageState extends State<DiscoveryPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => _HostDetailSheet(host: host),
+      builder: (ctx) => _HostDetailSheet(
+        host: host,
+        onStartCall: (callType) {
+          Navigator.pop(ctx); // dismiss the bottom sheet
+          _initiateCall(host, callType);
+        },
+      ),
+    );
+  }
+
+  /// Initiate a call using the parent page context (survives bottom sheet pop).
+  void _initiateCall(Map<String, dynamic> host, String callType) {
+    final hostUserId = host['userId'] as String? ?? '';
+    final hostName = (host['displayName'] ?? 'Host').toString();
+    if (hostUserId.isEmpty) return;
+
+    final rawAudio = (host['audioRate'] as num?)?.toDouble() ?? 0;
+    final audioRate = rawAudio > 0
+        ? rawAudio
+        : (host['ratePerMinute'] as num?)?.toDouble() ?? 1;
+    final rawVideo = (host['videoRate'] as num?)?.toDouble() ?? 0;
+    final videoRate = rawVideo > 0 ? rawVideo : audioRate;
+    final rate = callType == 'VIDEO' ? videoRate : audioRate;
+    final socket = CallSocketService.instance;
+
+    socket.onCallInitiated((data) {
+      if (!mounted) return;
+      socket.offCallInitiated();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OutgoingCallPage(
+            sessionId: data['sessionId'] ?? '',
+            hostId: hostUserId,
+            hostName: hostName,
+            ratePerMinute: rate,
+            callType: callType,
+          ),
+        ),
+      );
+    });
+
+    socket.onCallError((data) {
+      socket.offCallError();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(data['message'] ?? data['error'] ?? 'Call failed'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    });
+
+    socket.initiateCall(
+      hostId: hostUserId,
+      hostRate: audioRate,
+      callType: callType,
+      videoRate: videoRate > 0 ? videoRate : null,
     );
   }
 
@@ -149,9 +207,14 @@ class _HostCard extends StatelessWidget {
     final name = (host['displayName'] ?? '').toString();
     final bio = (host['bio'] ?? '').toString();
     final rate = (host['ratePerMinute'] ?? 0).toDouble();
+    final audioRate = (host['audioRate'] ?? rate).toDouble();
+    final videoRate = (host['videoRate'] ?? 0).toDouble();
     final rating = (host['averageRating'] ?? 0).toDouble();
     final expertiseList = (host['expertise'] as List<dynamic>?) ?? [];
     final available = host['isAvailable'] == true;
+    final availabilityStatus =
+        (host['availabilityStatus'] ?? (available ? 'ONLINE' : 'OFFLINE'))
+            .toString();
 
     return GestureDetector(
       onTap: onTap,
@@ -211,15 +274,36 @@ class _HostCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (available)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppTheme.success,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: availabilityStatus == 'ONLINE'
+                              ? AppTheme.success.withValues(alpha: 0.15)
+                              : availabilityStatus == 'IN_CALL'
+                              ? Colors.orange.withValues(alpha: 0.15)
+                              : availabilityStatus == 'BUSY'
+                              ? Colors.red.withValues(alpha: 0.15)
+                              : AppTheme.textSecondary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          availabilityStatus,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: availabilityStatus == 'ONLINE'
+                                ? AppTheme.success
+                                : availabilityStatus == 'IN_CALL'
+                                ? Colors.orange
+                                : availabilityStatus == 'BUSY'
+                                ? Colors.red
+                                : AppTheme.textSecondary,
                           ),
                         ),
+                      ),
                     ],
                   ),
                   if (bio.isNotEmpty) ...[
@@ -246,20 +330,36 @@ class _HostCard extends StatelessWidget {
                           fontSize: 12,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       const Icon(
-                        Icons.monetization_on,
+                        Icons.mic,
                         size: 14,
                         color: AppTheme.hostColor,
                       ),
                       const SizedBox(width: 2),
                       Text(
-                        '${rate.toStringAsFixed(1)}/min',
+                        '${audioRate.toStringAsFixed(1)}/min',
                         style: const TextStyle(
                           color: AppTheme.textSecondary,
                           fontSize: 12,
                         ),
                       ),
+                      if (videoRate > 0) ...[
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.videocam,
+                          size: 14,
+                          color: AppTheme.primary,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${videoRate.toStringAsFixed(1)}/min',
+                          style: const TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                       if (expertiseList.isNotEmpty) ...[
                         const SizedBox(width: 12),
                         Expanded(
@@ -290,18 +390,41 @@ class _HostCard extends StatelessWidget {
 // ---------- Host Detail Bottom Sheet ----------
 class _HostDetailSheet extends StatelessWidget {
   final Map<String, dynamic> host;
+  final void Function(String callType) onStartCall;
 
-  const _HostDetailSheet({required this.host});
+  const _HostDetailSheet({required this.host, required this.onStartCall});
 
   @override
   Widget build(BuildContext context) {
     final name = (host['displayName'] ?? '').toString();
     final bio = (host['bio'] ?? '').toString();
-    final rate = (host['ratePerMinute'] ?? 0).toDouble();
+    final rawAudioRate = (host['audioRate'] as num?)?.toDouble() ?? 0;
+    final audioRate = rawAudioRate > 0
+        ? rawAudioRate
+        : (host['ratePerMinute'] as num?)?.toDouble() ?? 0;
+    final videoRate = ((host['videoRate'] as num?)?.toDouble() ?? 0);
+    final messageRate = (host['messageRate'] ?? 0).toDouble();
     final rating = (host['averageRating'] ?? 0).toDouble();
     final calls = host['totalCalls'] ?? 0;
     final expertiseList = (host['expertise'] as List<dynamic>?) ?? [];
-    final available = host['isAvailable'] == true;
+    final availabilityStatus = (host['availabilityStatus'] ?? 'OFFLINE')
+        .toString();
+    final isOnline = availabilityStatus == 'ONLINE';
+
+    Color statusColor;
+    switch (availabilityStatus) {
+      case 'ONLINE':
+        statusColor = AppTheme.success;
+        break;
+      case 'IN_CALL':
+        statusColor = Colors.orange;
+        break;
+      case 'BUSY':
+        statusColor = Colors.red;
+        break;
+      default:
+        statusColor = AppTheme.textSecondary;
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -357,27 +480,22 @@ class _HostDetailSheet extends StatelessWidget {
                   fontSize: 20,
                 ),
               ),
-              if (available) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.success.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'Online',
-                    style: TextStyle(
-                      color: AppTheme.success,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  availabilityStatus,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -405,16 +523,39 @@ class _HostDetailSheet extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               _StatChip(
-                icon: Icons.monetization_on,
-                label: '${rate.toStringAsFixed(1)}/min',
-                color: AppTheme.hostColor,
-              ),
-              const SizedBox(width: 16),
-              _StatChip(
                 icon: Icons.call,
                 label: '$calls calls',
                 color: AppTheme.primary,
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Rate cards
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _StatChip(
+                icon: Icons.mic,
+                label: '\$${audioRate.toStringAsFixed(1)}/min',
+                color: AppTheme.hostColor,
+              ),
+              if (videoRate > 0) ...[
+                const SizedBox(width: 12),
+                _StatChip(
+                  icon: Icons.videocam,
+                  label: '\$${videoRate.toStringAsFixed(1)}/min',
+                  color: AppTheme.primary,
+                ),
+              ],
+              if (messageRate > 0) ...[
+                const SizedBox(width: 12),
+                _StatChip(
+                  icon: Icons.chat,
+                  label: '\$${messageRate.toStringAsFixed(1)}/msg',
+                  color: Colors.teal,
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -446,63 +587,44 @@ class _HostDetailSheet extends StatelessWidget {
             ),
           const SizedBox(height: 20),
 
-          // Call button
+          // Audio Call button
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton.icon(
-              onPressed: () async {
-                Navigator.pop(context);
-                final hostUserId = host['userId'] as String? ?? '';
-                if (hostUserId.isEmpty) return;
-
-                final hostRate =
-                    (host['ratePerMinute'] as num?)?.toDouble() ?? 1.0;
-                final socket = CallSocketService.instance;
-
-                // Listen for call_initiated to get sessionId
-                socket.onCallInitiated((data) {
-                  if (!context.mounted) return;
-                  socket.offCallInitiated();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => OutgoingCallPage(
-                        sessionId: data['sessionId'] ?? '',
-                        hostId: hostUserId,
-                        hostName: name.isNotEmpty ? name : 'Host',
-                        ratePerMinute: hostRate,
-                      ),
-                    ),
-                  );
-                });
-
-                // Listen for errors
-                socket.onCallError((data) {
-                  socket.offCallError();
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        data['message'] ?? data['error'] ?? 'Call failed',
-                      ),
-                      backgroundColor: Colors.redAccent,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                });
-
-                // Initiate the call
-                socket.initiateCall(hostId: hostUserId, hostRate: hostRate);
-              },
+              onPressed: isOnline ? () => onStartCall('AUDIO') : null,
               icon: const Icon(Icons.call),
-              label: Text('Call ${name.isNotEmpty ? name : 'Host'}'),
+              label: Text('Audio Call (\$${audioRate.toStringAsFixed(1)}/min)'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.hostColor,
+                disabledBackgroundColor: AppTheme.hostColor.withValues(
+                  alpha: 0.3,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 10),
+
+          // Video Call button
+          if (videoRate > 0)
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: isOnline ? () => onStartCall('VIDEO') : null,
+                icon: const Icon(Icons.videocam),
+                label: Text(
+                  'Video Call (\$${videoRate.toStringAsFixed(1)}/min)',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  disabledBackgroundColor: AppTheme.primary.withValues(
+                    alpha: 0.3,
+                  ),
+                ),
+              ),
+            ),
+          if (videoRate > 0) const SizedBox(height: 10),
 
           // Message button
           SizedBox(

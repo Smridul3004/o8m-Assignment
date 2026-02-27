@@ -43,12 +43,17 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <!-- Agora Web SDK -->
+  <!-- Force HTML renderer so HtmlElementView divs are in real DOM -->
+  <script>window.flutterWebRenderer = "html";</script>
+
+  <!-- Agora Web SDK v4 (CDN) -->
   <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.23.1.js"></script>
-  <!-- Agora audio manager (called from Dart via JS interop) -->
+
+  <!-- App-level Agora helpers -->
   <script src="agora_audio.js"></script>
-  <!-- Keep webrtc_audio.js around for now (unused but harmless) -->
+  <script src="agora_video.js"></script>
   <script src="webrtc_audio.js"></script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 

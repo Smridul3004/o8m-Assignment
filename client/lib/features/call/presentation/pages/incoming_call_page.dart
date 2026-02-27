@@ -95,6 +95,7 @@ class _IncomingCallPageState extends State<IncomingCallPage>
             answeredAt: data['answeredAt'] ?? DateTime.now().toIso8601String(),
             agoraToken: token,
             agoraAppId: appId,
+            callType: data['callType'] ?? widget.callType,
           ),
         ),
       );
