@@ -76,8 +76,14 @@ class _LoginPageState extends State<LoginPage>
         child: FadeTransition(
           opacity: _fadeAnimation,
           child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                // Clear any error message and reset form on pull-to-refresh
+                setState(() => _errorMessage = null);
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 32),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Form(
@@ -269,6 +275,7 @@ class _LoginPageState extends State<LoginPage>
                   ),
                 ),
               ),
+            ),
             ),
           ),
         ),

@@ -163,11 +163,21 @@ class _DashboardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return LayoutBuilder(
+      builder: (context, constraints) => RefreshIndicator(
+        onRefresh: () async {
+          // Data flows live from AuthProvider — nothing to reload,
+          // but the gesture confirms the UI is responsive on mobile.
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
           // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -321,7 +331,7 @@ class _DashboardTab extends StatelessWidget {
             ),
           ),
 
-          const Spacer(),
+          const SizedBox(height: 32),
 
           // Logout
           SizedBox(
@@ -340,7 +350,11 @@ class _DashboardTab extends StatelessWidget {
               ),
             ),
           ),
-        ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

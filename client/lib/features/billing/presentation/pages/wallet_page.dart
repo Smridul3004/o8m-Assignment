@@ -200,16 +200,27 @@ class _WalletPageState extends State<WalletPage> with WidgetsBindingObserver {
             const SizedBox(height: 12),
 
             Expanded(
-              child: _transactions.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No transactions yet',
-                        style: TextStyle(color: AppTheme.textSecondary),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _transactions.length,
-                      itemBuilder: (ctx, i) {
+              child: RefreshIndicator(
+                onRefresh: _loadSilent,
+                color: AppTheme.primary,
+                child: _transactions.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          SizedBox(height: 48),
+                          Center(
+                            child: Text(
+                              'No transactions yet\nPull down to refresh',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: AppTheme.textSecondary),
+                            ),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: _transactions.length,
+                          itemBuilder: (ctx, i) {
                         final tx = _transactions[i];
                         final type = tx['type'] ?? '';
                         final amount =
@@ -284,8 +295,7 @@ class _WalletPageState extends State<WalletPage> with WidgetsBindingObserver {
                           ),
                         );
                       },
-                    ),
-            ),
+                    ),              ),            ),
           ],
         ),
       ),
