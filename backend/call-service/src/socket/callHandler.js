@@ -223,7 +223,9 @@ module.exports = function callHandler(io, socket) {
 
         } catch (err) {
             console.error('initiate_call error:', err);
-            socket.emit('call_error', { error: 'Failed to initiate call' });
+            // Send detailed error for debugging
+            const errMessage = err.response?.data?.error || err.message || 'Unknown error';
+            socket.emit('call_error', { error: `Failed to initiate call: ${errMessage}` });
         }
     });
 
