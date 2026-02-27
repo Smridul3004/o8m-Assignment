@@ -251,8 +251,10 @@ router.post('/deduct-message', async (req, res) => {
 router.post('/pre-auth', async (req, res) => {
     const client = await pool.connect();
     try {
+        console.log('pre-auth request body:', req.body);
         const { callerId, hostId, ratePerMinute } = req.body;
-        if (!callerId || !ratePerMinute) {
+        if (!callerId || ratePerMinute === undefined || ratePerMinute === null) {
+            console.log('pre-auth validation failed:', { callerId, ratePerMinute });
             return res.status(400).json({ error: 'callerId and ratePerMinute required' });
         }
 

@@ -101,17 +101,26 @@ module.exports = function callHandler(io, socket) {
 
             // Determine rate based on call type
             const effectiveCallType = callType || 'AUDIO';
-            const effectiveRate = effectiveCallType === 'VIDEO' && videoRate ? videoRate : hostRate;
+            // Ensure we have a valid rate (fall back to 1.0 if host hasn't set rates)
+            const baseRate = (hostRate && hostRate > 0) ? hostRate : 1.0;
+            const effectiveRate = (effectiveCallType === 'VIDEO' && videoRate && videoRate > 0) ? videoRate : baseRate;
+
+            console.log('initiate_call payload:', { userId, hostId, hostRate, callType, videoRate, baseRate, effectiveRate });
 
             // Pre-authorise billing (lock credits for 1 minute)
             let preAuthId;
             try {
-                const resp = await axios.post(`${BILLING_SERVICE_URL}/wallet/pre-auth`, {
+                const billingPayload = {
                     callerId: userId,
                     hostId,
                     ratePerMinute: effectiveRate,
-                }, {
-                    headers: { 'x-user-id': userId },
+                };
+                console.log('Sending to billing pre-auth:', billingPayload);
+                const resp = await axios.post(`${BILLING_SERVICE_URL}/wallet/pre-auth`, billingPayload, {
+                    headers: { 
+                        'x-user-id': userId,
+                        'Content-Type': 'application/json',
+                    },
                 });
                 preAuthId = resp.data.preAuthId;
             } catch (err) {
