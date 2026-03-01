@@ -144,3 +144,18 @@ services:
         value: 3007
       - key: MONGO_URI
         sync: false
+
+  # ============ Frontend (Flutter Web) ============
+  - type: web
+    name: o8m-frontend
+    runtime: static
+    buildCommand: echo "Using pre-built Flutter web files"
+    staticPublishPath: ./client/build/web
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

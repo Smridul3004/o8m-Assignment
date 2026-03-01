@@ -18,6 +18,35 @@ const String _envBillingUrl = String.fromEnvironment(
   defaultValue: '',
 );
 
+/// Production URLs on Render
+const String _prodAuthUrl = 'https://o8m-auth-service.onrender.com';
+const String _prodUserUrl = 'https://o8m-user-service.onrender.com';
+const String _prodDiscoveryUrl = 'https://o8m-discovery-service.onrender.com';
+const String _prodChatUrl = 'https://o8m-chat-service.onrender.com';
+const String _prodCallUrl = 'https://o8m-call-service.onrender.com';
+const String _prodBillingUrl = 'https://o8m-billing-service.onrender.com';
+
+/// Check if we're running in production (deployed environment)
+bool _isProduction() {
+  try {
+    final host = _jsHostname;
+    // Production if hostname is NOT localhost or an IP like 127.0.0.1/192.168.x.x
+    if (host.isEmpty || host == 'localhost' || host == '127.0.0.1') {
+      return false;
+    }
+    // Check for local IP patterns
+    if (host.startsWith('192.168.') ||
+        host.startsWith('10.') ||
+        host.startsWith('172.')) {
+      return false;
+    }
+    // Any other hostname (like .onrender.com, .netlify.app, custom domain) = production
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 /// Returns the base URL for local development
 String _localUrl(int port) {
   try {
@@ -31,43 +60,49 @@ String _localUrl(int port) {
 
 class ApiConstants {
   // Auth Service
-  static String get authBase =>
-      _envAuthUrl.isNotEmpty ? _envAuthUrl : _localUrl(3001);
+  static String get authBase => _envAuthUrl.isNotEmpty
+      ? _envAuthUrl
+      : (_isProduction() ? _prodAuthUrl : _localUrl(3001));
   static String get register => '$authBase/register';
   static String get login => '$authBase/login';
   static String get refresh => '$authBase/refresh';
   static String get me => '$authBase/me';
 
   // User Service
-  static String get userBase =>
-      _envUserUrl.isNotEmpty ? _envUserUrl : _localUrl(3002);
+  static String get userBase => _envUserUrl.isNotEmpty
+      ? _envUserUrl
+      : (_isProduction() ? _prodUserUrl : _localUrl(3002));
   static String get profileEnsure => '$userBase/profile/ensure';
   static String get profile => '$userBase/profile';
   static String get profileRate => '$userBase/profile/rate';
 
   // Discovery Service
-  static String get discoveryBase =>
-      _envDiscoveryUrl.isNotEmpty ? _envDiscoveryUrl : _localUrl(3003);
+  static String get discoveryBase => _envDiscoveryUrl.isNotEmpty
+      ? _envDiscoveryUrl
+      : (_isProduction() ? _prodDiscoveryUrl : _localUrl(3003));
   static String get hosts => '$discoveryBase/hosts';
 
   // Billing Service
-  static String get billingBase =>
-      _envBillingUrl.isNotEmpty ? _envBillingUrl : _localUrl(3006);
+  static String get billingBase => _envBillingUrl.isNotEmpty
+      ? _envBillingUrl
+      : (_isProduction() ? _prodBillingUrl : _localUrl(3006));
   static String get wallet => '$billingBase/wallet';
   static String get walletPurchase => '$billingBase/wallet/purchase';
   static String get walletTransactions => '$billingBase/wallet/transactions';
 
   // Chat Service
-  static String get chatBase =>
-      _envChatUrl.isNotEmpty ? _envChatUrl : _localUrl(3004);
+  static String get chatBase => _envChatUrl.isNotEmpty
+      ? _envChatUrl
+      : (_isProduction() ? _prodChatUrl : _localUrl(3004));
   static String get chatSocket => chatBase;
   static String get conversations => '$chatBase/conversations';
   static String conversationMessages(String id) =>
       '$chatBase/conversations/$id/messages';
 
   // Call Service
-  static String get callBase =>
-      _envCallUrl.isNotEmpty ? _envCallUrl : _localUrl(3005);
+  static String get callBase => _envCallUrl.isNotEmpty
+      ? _envCallUrl
+      : (_isProduction() ? _prodCallUrl : _localUrl(3005));
   static String get callSocket => callBase;
   static String get callsActive => '$callBase/calls/active';
   static String callSession(String id) => '$callBase/calls/$id';
